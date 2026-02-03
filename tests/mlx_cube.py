@@ -1,7 +1,7 @@
 import ctypes
 import math
 
-import mlx
+import libs.mlx.mlx as mlx
 
 W, H = 800, 600
 
