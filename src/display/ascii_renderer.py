@@ -49,7 +49,7 @@ def render_ascii(maze: Maze) -> None:
     grid = maze_to_bool_grid(maze)
     for line in grid:
         for cell in line:
-            print('█' if cell else " ", end="")
+            print('██' if cell else "  ", end="")
         print()
     # print()
     # print(maze)
