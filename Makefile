@@ -12,10 +12,10 @@ install:
 	$(PIP) install flake8 mypy
 
 run:
-	@$(PYTHON) -m src.a_maze_ing $(ARGS)
+	@$(PYTHON) -m src.a_maze_ing $(ARGS) || true
 
 debug:
-	@$(PYTHON) -m src.a_maze_ing --debug $(ARGS)
+	@$(PYTHON) -m src.a_maze_ing --debug $(ARGS) || true
 
 clean:
 	rm -rf **/*__pycache__ **/*.mypy_cache **/*.pytest_cache

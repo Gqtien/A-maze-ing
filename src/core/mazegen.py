@@ -27,18 +27,18 @@ class Maze:
         self,
         width: int,
         height: int,
-        seed: int,
         entry: tuple[int, int],
         exit: tuple[int, int],
         perfect: bool,
+        seed: int | None,
         output_file_name: str | None = None,
     ) -> None:
         self.width: int = width
         self.height: int = height
-        self.seed: int = seed
         self.entry: tuple[int, int] = entry
         self.exit: tuple[int, int] = exit
         self.perfect: bool = perfect
+        self.seed: int | None = seed
         self.output_file_name: str | None = output_file_name
         self._maze: list[list[Cell]] = []
         for y in range(self.height):
@@ -82,7 +82,7 @@ class MazeGenerator:
         entry: tuple[int, int],
         exit: tuple[int, int],
         perfect: bool = True,
-        seed: int = 0,
+        seed: int | None = None,
         output_file_name: str | None = None,
     ) -> None:
         self._maze = Maze(
