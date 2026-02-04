@@ -137,4 +137,3 @@ class MazeGenerator:
                 continue
             self._open_wall_between(current, neighbor)
             self._generate_from(neighbor.x, neighbor.y, rng, visited)
-
