@@ -1,4 +1,3 @@
-import sys
 import libs.mlx.mlx as mlx
 
 

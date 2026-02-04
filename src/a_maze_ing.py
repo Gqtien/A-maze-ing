@@ -1,25 +1,37 @@
 import sys
-from src.core.mazegen import MazeGenerator
-from src.display.ascii_renderer import render_ascii
-from src.display.mlx_2d import run_mlx_2d
+from typing import Any, Mapping
+from src.core import MazeGenerator, parse_config
+from src.display import render_ascii, run_mlx_2d
+
+
+def require(cfg: Mapping[str, Any], key: str) -> Any:
+    if key not in cfg:
+        raise ValueError(f"Missing {key}")
+    return cfg[key]
 
 
 def main() -> int:
-    # TODO: parse config, hardcoded for now
-    width = 20
-    height = 15
-    entry = (0, 0)
-    exit = (19, 14)
-    perfect = True
-    seed = 0
+    if len(sys.argv) != 2:
+        print("Usage: make run <config_file>")
+        return 1
+
+    try:
+        config = parse_config(sys.argv[1])
+    except (FileNotFoundError, ValueError) as e:
+        print(e)
+        return 1
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return 1
 
     gen = MazeGenerator(
-        width=width,
-        height=height,
-        entry=entry,
-        exit=exit,
-        perfect=perfect,
-        seed=seed,
+        width=require(config, "WIDTH"),
+        height=require(config, "HEIGHT"),
+        entry=require(config, "ENTRY"),
+        exit=require(config, "EXIT"),
+        perfect=config.get("PERFECT", True),
+        seed=config.get("SEED", 0),
+        output_file_name=config.get("OUTPUT_FILE", None),
     )
     maze = gen.generate()
     render_ascii(maze)

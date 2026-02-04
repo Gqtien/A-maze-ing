@@ -1,4 +1,3 @@
-import sys
 from src.core.mazegen import Maze, Wall
 
 
