@@ -42,6 +42,22 @@ class Cell:
         """Get west wall."""
         return self.wall & Wall.WEST.value == Wall.WEST.value
 
+    def nw(self) -> bool:
+        """North or West."""
+        return self.north() or self.west()
+
+    def ne(self) -> bool:
+        """North or east."""
+        return self.north() or self.east()
+
+    def sw(self) -> bool:
+        """South or west."""
+        return self.south() or self.west()
+
+    def se(self) -> bool:
+        """South or east."""
+        return self.south() or self.east()
+
     def is_full(self) -> bool:
         """Check if every wall is there."""
         return self.east() and self.west() and self.north() and self.south()
@@ -56,8 +72,8 @@ class Maze:
         height: int,
         entry: tuple[int, int],
         exit: tuple[int, int],
-        perfect: bool,
-        seed: int | None,
+        perfect: bool = False,
+        seed: int | None = None,
         output_file_name: str | None = None,
     ) -> None:
         """Maze constructor."""
@@ -66,7 +82,7 @@ class Maze:
         self.entry: tuple[int, int] = entry
         self.exit: tuple[int, int] = exit
         self.perfect: bool = perfect
-        self.seed: int | None = seed
+        self.seed: int = seed if seed else random.randint(0, 1_000_000)
         self.output_file_name: str | None = output_file_name
         self._maze: list[list[Cell]] = []
         # init maze full of walls (0xF)
@@ -87,7 +103,7 @@ class Maze:
 
     def _generate(self) -> None:
         """Run generation and returns the maze."""
-        rng = random.Random(self.seed if self.seed else random.seed())
+        rng = random.Random(self.seed)
         self._backtracking(self.entry[0], self.entry[1], rng)
 
     def _backtracking(
@@ -151,9 +167,17 @@ class Maze:
             # upper 3x3
             grid.append([])
             for cell in line:
-                grid[y * 3].append(cell.north() or cell.west())
+                grid[y * 3].append(
+                    cell.north() or cell.west()
+                    or self.get_cell(cell.x - 1, cell.y).ne()
+                    or self.get_cell(cell.x, cell.y - 1).sw()
+                )
                 grid[y * 3].append(cell.north())
-                grid[y * 3].append(cell.north() or cell.east())
+                grid[y * 3].append(
+                    cell.north() or cell.east()
+                    or self.get_cell(cell.x + 1, cell.y).nw()
+                    or self.get_cell(cell.x, cell.y - 1).se()
+                )
             # middle 3x3
             grid.append([])
             for cell in line:
@@ -163,7 +187,15 @@ class Maze:
             # lower 3x3
             grid.append([])
             for cell in line:
-                grid[y * 3 + 2].append(cell.south() or cell.west())
+                grid[y * 3 + 2].append(
+                    cell.south() or cell.west()
+                    or self.get_cell(cell.x - 1, cell.y).se()
+                    or self.get_cell(cell.x, cell.y + 1).nw()
+                )
                 grid[y * 3 + 2].append(cell.south())
-                grid[y * 3 + 2].append(cell.south() or cell.east())
+                grid[y * 3 + 2].append(
+                    cell.south() or cell.east()
+                    or self.get_cell(cell.x + 1, cell.y).sw()
+                    or self.get_cell(cell.x, cell.y + 1).ne()
+                )
         return grid

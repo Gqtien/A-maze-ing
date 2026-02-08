@@ -33,7 +33,8 @@ def main() -> int:
     )
 
     render_ascii(maze)
-    # run_mlx_2d()
+    # run_mlx_2d(maze)
+    print(maze.seed)
     return 0
 
 
