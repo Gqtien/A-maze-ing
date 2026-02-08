@@ -13,7 +13,7 @@ class ConfigKey(Enum):
     OUTPUT_FILE = str
 
 
-def cast_value(value: str, type: type):
+def cast_value(value: str, type: type) -> Any:
     try:
         if type is int:
             return int(value)

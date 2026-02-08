@@ -194,7 +194,7 @@ class Renderer:
         self.keys.remove(key)
 
 
-def run_mlx_3d(maze) -> None:
+def run_mlx_3d(maze: Maze) -> None:
     """Run the 3d rendering."""
     renderer = Renderer(800, 600, "title - 3d", maze)
     renderer.run()
