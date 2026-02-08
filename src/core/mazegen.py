@@ -161,7 +161,7 @@ class Maze:
         return self._maze
 
     def to_grid(self) -> list[list[bool]]:
-        """Convert maze to a 3x-per-cell grid for wall drawing (True = wall)."""
+        """Convert maze to a 3x-per-cell bool grid."""
         grid: list[list[bool]] = []
         for y, line in enumerate(self.get_maze()):
             # upper 3x3

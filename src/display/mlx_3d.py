@@ -68,7 +68,9 @@ class Camera:
 class Renderer:
     """Wrap mlx."""
 
-    def __init__(self, width: int, height: int, title: str, maze: Maze) -> None:
+    def __init__(
+            self, width: int, height: int, title: str, maze: Maze
+    ) -> None:
         """Init the mlx, hook functions."""
         self.width: int = width
         self.height: int = height
@@ -77,7 +79,9 @@ class Renderer:
         # mlx
         self.mlx = Mlx()
         self.mlx_ptr = self.mlx.mlx_init()
-        self.win_ptr = self.mlx.mlx_new_window(self.mlx_ptr, width, height, title)
+        self.win_ptr = self.mlx.mlx_new_window(
+            self.mlx_ptr, width, height, title
+        )
         self.img_ptr_a = self.mlx.mlx_new_image(self.mlx_ptr, width, height)
         self.img_ptr_b = self.mlx.mlx_new_image(self.mlx_ptr, width, height)
         self.buffer_a, self.bits_per_pixel, self.line_size, _ = (
@@ -110,12 +114,15 @@ class Renderer:
             line_y: int = self.height // 2 - line_height // 2
             # print(line_height)
             # print(perp_wall_dist)
-            self.draw_rect(Rect(x, line_y, line_width, line_height), 0xFFFF0000)
+            self.draw_rect(
+                Rect(x, line_y, line_width, line_height),
+                0xFFFF0000
+            )
 
     def cast_ray(self, x: int) -> float:
         """Get the distance from a wall in a dir."""
         ray: Vec2 = self.camera.pos
-        start_dir = self.camera.direction
+        # start_dir = self.camera.direction
         hit = False
         while not hit:
             ray.x += 0.1

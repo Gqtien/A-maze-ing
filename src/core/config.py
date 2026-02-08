@@ -56,7 +56,8 @@ def parse_config(path: str) -> Dict[str, Any]:
                 casted_value = cast_value(value, expected_type)
             except ValueError as e:
                 raise ValueError(
-                    f"Invalid value for {key!r} (expected {expected_type.__name__}): {value}"
+                    f"Invalid value for {key!r}"
+                    + f"(expected {expected_type.__name__}): {value}"
                 ) from e
 
             config[key] = casted_value
