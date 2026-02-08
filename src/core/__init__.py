@@ -1,8 +1,8 @@
-from src.core.mazegen import MazeGenerator
+from src.core.mazegen import Maze
 from src.core.config import parse_config
 
 
 __all__ = [
-    "MazeGenerator",
+    "Maze",
     "parse_config"
 ]

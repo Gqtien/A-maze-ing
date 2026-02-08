@@ -1,6 +1,6 @@
 import sys
 from typing import Any, Dict
-from src.core import MazeGenerator, parse_config
+from src.core import Maze, parse_config
 from src.display import render_ascii, run_mlx_2d
 
 
@@ -22,7 +22,7 @@ def main() -> int:
         print(e)
         exit(1)
 
-    gen = MazeGenerator(
+    maze = Maze(
         width=require(config, "WIDTH"),
         height=require(config, "HEIGHT"),
         entry=require(config, "ENTRY"),
@@ -32,7 +32,6 @@ def main() -> int:
         output_file_name=config.get("OUTPUT_FILE", None),
     )
 
-    maze = gen.generate()
     render_ascii(maze)
     # run_mlx_2d()
     return 0

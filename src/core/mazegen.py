@@ -1,9 +1,13 @@
+"""Module for generating a maze."""
+
+
 import random
 from enum import Enum
 
 
 class Wall(Enum):
     """Wall bitmasks."""
+
     NORTH = 1 << 0
     EAST = 1 << 1
     SOUTH = 1 << 2
@@ -12,17 +16,21 @@ class Wall(Enum):
 
 class Cell:
     """Maze cell with wall bitmask."""
+
     def __init__(self, x: int, y: int, walls: int = 0) -> None:
+        """Init cell."""
         self.wall: int = walls
         self.x: int = x
         self.y: int = y
 
     def __repr__(self) -> str:
+        """Hex value."""
         return hex(self.wall)[2:].upper()
 
 
 class Maze:
     """Maze grid."""
+
     def __init__(
         self,
         width: int,
@@ -33,6 +41,7 @@ class Maze:
         seed: int | None,
         output_file_name: str | None = None,
     ) -> None:
+        """Maze constructor."""
         self.width: int = width
         self.height: int = height
         self.entry: tuple[int, int] = entry
@@ -41,12 +50,15 @@ class Maze:
         self.seed: int | None = seed
         self.output_file_name: str | None = output_file_name
         self._maze: list[list[Cell]] = []
+        # init maze full of walls (0xF)
         for y in range(self.height):
             self._maze.append([])
             for x in range(self.width):
-                self._maze[y].append(Cell(x, y, 15))
+                self._maze[y].append(Cell(x, y, 0xF))
+        self.generate()
 
     def __str__(self) -> str:
+        """Hex ascii map."""
         ret: str = ""
         for y in range(self.height):
             for x in range(self.width):
@@ -55,7 +67,7 @@ class Maze:
         return ret
 
     def get_neighbors(self, cell: Cell) -> list[Cell]:
-        """Returns list of adjacent cells."""
+        """Return list of adjacent cells."""
         ret: list[Cell] = []
         for dx, dy in (-1, 0), (1, 0), (0, 1), (0, -1):
             nx, ny = cell.x + dx, cell.y + dy
@@ -68,38 +80,32 @@ class Maze:
         """Return cell at (x, y)."""
         return self._maze[y][x]
 
-    def rows(self) -> list[list[Cell]]:
-        """Return maze rows (read-only view)."""
+    def get_maze(self) -> list[list[Cell]]:
+        """Return maze rows."""
         return self._maze
 
+    def generate(self) -> None:
+        """Run generation and returns the maze."""
+        rng = random.Random(self.seed if self.seed else random.seed())
+        self._backtracking(self.entry[0], self.entry[1], rng)
 
-class MazeGenerator:
-    """Generates mazes."""
-    def __init__(
+    def _backtracking(
         self,
-        width: int,
-        height: int,
-        entry: tuple[int, int],
-        exit: tuple[int, int],
-        perfect: bool = True,
-        seed: int | None = None,
-        output_file_name: str | None = None,
+        x: int,
+        y: int,
+        rng: random.Random,
+        visited: list[Cell] = [],
     ) -> None:
-        self._maze = Maze(
-            width=width,
-            height=height,
-            seed=seed,
-            entry=entry,
-            exit=exit,
-            perfect=perfect,
-            output_file_name=output_file_name,
-        )
-
-    def generate(self) -> Maze:
-        """Runs generation and returns the maze."""
-        rng = random.Random(self._maze.seed if self._maze.seed else random.seed())
-        self._generate_from(self._maze.entry[0], self._maze.entry[1], rng)
-        return self._maze
+        """Recursive backtracking."""
+        current = self.get_cell(x, y)
+        visited.append(current)
+        neighbors = self.get_neighbors(current)
+        rng.shuffle(neighbors)
+        for neighbor in neighbors:
+            if neighbor in visited:
+                continue
+            self._open_wall_between(current, neighbor)
+            self._backtracking(neighbor.x, neighbor.y, rng, visited)
 
     def _open_wall_between(self, cell1: Cell, cell2: Cell) -> None:
         """Open path between two adjacent cells."""
@@ -118,22 +124,3 @@ class MazeGenerator:
             case 0, -1:
                 cell1.wall &= ~Wall.NORTH.value
                 cell2.wall &= ~Wall.SOUTH.value
-
-    def _generate_from(
-        self,
-        x: int,
-        y: int,
-        rng: random.Random,
-        visited: list[Cell] = [],
-    ) -> None:
-        """Recursive backtracking."""
-        maze = self._maze
-        current = maze.get_cell(x, y)
-        visited.append(current)
-        neighbors = maze.get_neighbors(current)
-        rng.shuffle(neighbors)
-        for neighbor in neighbors:
-            if neighbor in visited:
-                continue
-            self._open_wall_between(current, neighbor)
-            self._generate_from(neighbor.x, neighbor.y, rng, visited)

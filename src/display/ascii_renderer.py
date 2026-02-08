@@ -4,7 +4,7 @@ from src.core.mazegen import Maze, Wall
 def maze_to_bool_grid(maze: Maze) -> list[list[bool]]:
     """Convert maze to a 3x-per-cell grid for wall drawing (True = wall)."""
     grid: list[list[bool]] = []
-    rows = maze.rows()
+    rows = maze.get_maze()
     for y, line in enumerate(rows):
         for i in range(3):
             grid.append([])
@@ -50,5 +50,3 @@ def render_ascii(maze: Maze) -> None:
         for cell in line:
             print('██' if cell else "  ", end="")
         print()
-    # print()
-    # print(maze)
