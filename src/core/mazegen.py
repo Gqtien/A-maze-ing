@@ -1,6 +1,5 @@
 """Module for generating a maze."""
 
-
 import random
 from enum import Enum
 
@@ -26,6 +25,26 @@ class Cell:
     def __repr__(self) -> str:
         """Hex value."""
         return hex(self.wall)[2:].upper()
+
+    def north(self) -> bool:
+        """Get north wall."""
+        return self.wall & Wall.NORTH.value == Wall.NORTH.value
+
+    def south(self) -> bool:
+        """Get south wall."""
+        return self.wall & Wall.SOUTH.value == Wall.SOUTH.value
+
+    def east(self) -> bool:
+        """Get east wall."""
+        return self.wall & Wall.EAST.value == Wall.EAST.value
+
+    def west(self) -> bool:
+        """Get west wall."""
+        return self.wall & Wall.WEST.value == Wall.WEST.value
+
+    def is_full(self) -> bool:
+        """Check if every wall is there."""
+        return self.east() and self.west() and self.north() and self.south()
 
 
 class Maze:
@@ -55,7 +74,7 @@ class Maze:
             self._maze.append([])
             for x in range(self.width):
                 self._maze[y].append(Cell(x, y, 0xF))
-        self.generate()
+        self._generate()
 
     def __str__(self) -> str:
         """Hex ascii map."""
@@ -66,25 +85,7 @@ class Maze:
             ret += "\n"
         return ret
 
-    def get_neighbors(self, cell: Cell) -> list[Cell]:
-        """Return list of adjacent cells."""
-        ret: list[Cell] = []
-        for dx, dy in (-1, 0), (1, 0), (0, 1), (0, -1):
-            nx, ny = cell.x + dx, cell.y + dy
-            if nx < 0 or ny < 0 or nx >= self.width or ny >= self.height:
-                continue
-            ret.append(self._maze[ny][nx])
-        return ret
-
-    def get_cell(self, x: int, y: int) -> Cell:
-        """Return cell at (x, y)."""
-        return self._maze[y][x]
-
-    def get_maze(self) -> list[list[Cell]]:
-        """Return maze rows."""
-        return self._maze
-
-    def generate(self) -> None:
+    def _generate(self) -> None:
         """Run generation and returns the maze."""
         rng = random.Random(self.seed if self.seed else random.seed())
         self._backtracking(self.entry[0], self.entry[1], rng)
@@ -124,3 +125,45 @@ class Maze:
             case 0, -1:
                 cell1.wall &= ~Wall.NORTH.value
                 cell2.wall &= ~Wall.SOUTH.value
+
+    def get_neighbors(self, cell: Cell) -> list[Cell]:
+        """Return list of adjacent cells."""
+        ret: list[Cell] = []
+        for dx, dy in (-1, 0), (1, 0), (0, 1), (0, -1):
+            nx, ny = cell.x + dx, cell.y + dy
+            if nx < 0 or ny < 0 or nx >= self.width or ny >= self.height:
+                continue
+            ret.append(self._maze[ny][nx])
+        return ret
+
+    def get_cell(self, x: int, y: int) -> Cell:
+        """Return cell at (x, y)."""
+        return self._maze[y][x]
+
+    def get_maze(self) -> list[list[Cell]]:
+        """Return maze rows."""
+        return self._maze
+
+    def to_grid(self) -> list[list[bool]]:
+        """Convert maze to a 3x-per-cell grid for wall drawing (True = wall)."""
+        grid: list[list[bool]] = []
+        for y, line in enumerate(self.get_maze()):
+            # upper 3x3
+            grid.append([])
+            for cell in line:
+                grid[y * 3].append(cell.north() or cell.west())
+                grid[y * 3].append(cell.north())
+                grid[y * 3].append(cell.north() or cell.east())
+            # middle 3x3
+            grid.append([])
+            for cell in line:
+                grid[y * 3 + 1].append(cell.west())
+                grid[y * 3 + 1].append(cell.is_full())
+                grid[y * 3 + 1].append(cell.east())
+            # lower 3x3
+            grid.append([])
+            for cell in line:
+                grid[y * 3 + 2].append(cell.south() or cell.west())
+                grid[y * 3 + 2].append(cell.south())
+                grid[y * 3 + 2].append(cell.south() or cell.east())
+        return grid
