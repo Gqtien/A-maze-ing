@@ -78,9 +78,9 @@ class Camera:
     def move(self, keys: set[int]) -> None:
         """Move the camera."""
         if 65363 in keys:  # right arrow
-            self.dir.rotate(-10)
-        elif 65361 in keys:  # left arrow
             self.dir.rotate(10)
+        elif 65361 in keys:  # left arrow
+            self.dir.rotate(-10)
 
         if 65364 in keys:  # down arrow
             self.pos.x -= self.dir.x * self.speed
