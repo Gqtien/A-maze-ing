@@ -23,6 +23,14 @@ class Vec2:
             )
         return self.x == other.x and self.y == other.y
 
+    def __str__(self) -> str:
+        """Str."""
+        return f"({self.x:.2f}, {self.y:.2f})"
+
+    def copy(self) -> 'Vec2':
+        """Copy the object."""
+        return Vec2(self.x, self.y)
+
     def length(self) -> float:
         """Get length."""
         return math.sqrt(self.x * self.x + self.y * self.y)
@@ -30,8 +38,21 @@ class Vec2:
     def normalize(self) -> None:
         """Make lenght 1."""
         length = self.length()
+        if length < 1e-6:
+            return
         self.x /= length
         self.y /= length
+
+    def rotate(self, degrees: float) -> None:
+        """Rotate by given degrees."""
+        radians = math.radians(degrees)
+        cos_a = math.cos(radians)
+        sin_a = math.sin(radians)
+
+        tmp_x: float = self.x
+
+        self.x = self.x * cos_a - self.y * sin_a
+        self.y = tmp_x * sin_a + self.y * cos_a
 
 
 @dataclass
@@ -49,20 +70,24 @@ class Camera:
     """Camera."""
 
     pos: Vec2
-    direction: Vec2 = Vec2(1.0, 0.0)
-    FOV: int = 100
-    speed: int = 10  # pixels/frame
+    dir: Vec2
+    FOV: int = 60  # TODO: load it from config
+
+    speed: float = 0.1  # block/frame
 
     def move(self, keys: set[int]) -> None:
         """Move the camera."""
         if 65363 in keys:  # right arrow
-            self.pos.x += self.speed
+            self.dir.rotate(-10)
+        elif 65361 in keys:  # left arrow
+            self.dir.rotate(10)
+
         if 65364 in keys:  # down arrow
-            self.pos.y += self.speed
-        if 65361 in keys:  # left arrow
-            self.pos.x -= self.speed
-        if 65362 in keys:  # up arrow
-            self.pos.y -= self.speed
+            self.pos.x -= self.dir.x * self.speed
+            self.pos.y -= self.dir.y * self.speed
+        elif 65362 in keys:  # up arrow
+            self.pos.x += self.dir.x * self.speed
+            self.pos.y += self.dir.y * self.speed
 
 
 class Renderer:
@@ -98,7 +123,7 @@ class Renderer:
         self.mlx.mlx_hook(self.win_ptr, 3, 2, self.key_up_hook, param=None)
 
         self.maze: Maze = maze
-        self.camera: Camera = Camera(Vec2(10, 10))  # TODO: init pos
+        self.camera: Camera = Camera(pos=Vec2(1.5, 1.5), dir=Vec2(1, 0))
         self.keys: set[int] = set()
 
         self.mlx.mlx_do_sync(self.mlx_ptr)
@@ -107,38 +132,88 @@ class Renderer:
         """Render."""
         line_width: int = 5
         for x in range(0, self.width, line_width):
-            perp_wall_dist: float = self.cast_ray(x)
-            if perp_wall_dist < 0.01:
-                perp_wall_dist = 1.0
+            perp_wall_dist, side = self.cast_ray(x)
+            if perp_wall_dist < 1e-6:
+                print("dist is very small")
+                continue
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
             # print(line_height)
             # print(perp_wall_dist)
             self.draw_rect(
                 Rect(x, line_y, line_width, line_height),
-                0xFFFF0000
+                0xFFFF0000 if side == 1 else 0xFF0000FF
             )
 
-    def cast_ray(self, x: int) -> float:
+    def cast_ray(self, x: int) -> Vec2:
         """Get the distance from a wall in a dir."""
-        ray: Vec2 = self.camera.pos
-        # start_dir = self.camera.direction
-        hit = False
+        dist_x: float = self.camera.pos.x
+        dist_y: float = self.camera.pos.y
+
+        grid: list[list[bool]] = self.maze.to_grid()
+
+        # TODO: remove
+        self.camera.dir.normalize()
+
+        # NOTE: FOV stuff and camera plane
+        plane_x = -self.camera.dir.y
+        plane_y = self.camera.dir.x
+        fov_scale = math.tan(math.radians(self.camera.FOV) / 2)
+        plane_x *= fov_scale
+        plane_y *= fov_scale
+
+        camera_x: float = 2 * x / self.width - 1  # x in [-1; 1]
+
+        ray_dir: Vec2 = self.camera.dir.copy()
+        ray_dir.x += plane_x * camera_x
+        ray_dir.y += plane_y * camera_x
+
+        # NOTE: might remove later
+        ray_dir.normalize()
+
+        dx: float = abs(1 / ray_dir.x) if abs(ray_dir.x) > 0.01 else 1e30
+        dy: float = abs(1 / ray_dir.y) if abs(ray_dir.y) > 0.01 else 1e30
+
+        map_x: int = int(self.camera.pos.x)
+        map_y: int = int(self.camera.pos.y)
+
+        # init step_x (for map indexes) and dist_x
+        if ray_dir.x > 0:
+            step_x: int = 1
+            dist_x: float = (map_x + 1.0 - self.camera.pos.x) * dx
+        else:
+            step_x: int = -1
+            dist_x: float = (self.camera.pos.x - map_x) * dx
+        if ray_dir.y > 0:
+            step_y: int = 1
+            dist_y: float = (map_y + 1.0 - self.camera.pos.y) * dy
+        else:
+            step_y: int = -1
+            dist_y: float = (self.camera.pos.y - map_y) * dy
+
+        hit: bool = False
         while not hit:
-            ray.x += 0.1
-            ray.y += 0.1
-            map_x = round(ray.x)
-            map_y = round(ray.y)
+            if dist_x < dist_y:
+                dist_x += dx
+                map_x += step_x
+                is_vertical = True
+            else:
+                dist_y += dy
+                map_y += step_y
+                is_vertical = False
+
             if map_x <= 0 or map_y <= 0:
                 break
             if map_x >= self.maze.width - 1 or map_y >= self.maze.height - 1:
                 break
-            # TODO: check depending on incoming direction
-            hit = self.maze._maze[map_y][map_x].is_full()
-        dist = math.sqrt((ray.x - map_x) ** 2 + (ray.y - map_y) ** 2)
-        if dist < 0.01:
-            dist = 0.0
-        return dist
+            hit = grid[map_y][map_x]
+
+        if is_vertical:
+            perp_wall_dist = (dist_x - dx)
+        else:
+            perp_wall_dist = (dist_y - dy)
+
+        return perp_wall_dist, is_vertical
 
     def run(self) -> None:
         """Start infinite loop."""
@@ -147,7 +222,8 @@ class Renderer:
 
     def loop(self, _: Any) -> None:
         """Loop."""
-        self.clear()
+        self.clear()  # TODO
+        self.mlx.mlx_clear_window(self.mlx_ptr, self.win_ptr)
 
         self.render()
 
@@ -161,6 +237,9 @@ class Renderer:
         self.buffer_a, self.buffer_b = self.buffer_b, self.buffer_a
 
         self.camera.move(self.keys)
+        print(self.camera.pos)
+        print(self.camera.dir)
+        print()
 
     def clear(self) -> None:
         """Clear the memory buffer."""
@@ -196,9 +275,7 @@ class Renderer:
 
     def key_up_hook(self, key: int, _param: None) -> None:
         """Remove keys from self.keys."""
-        if key == 65293:  # ENTER
-            return  # skip first enter key up after lauching the command
-        self.keys.remove(key)
+        self.keys.discard(key)
 
 
 def run_mlx_3d(maze: Maze) -> None:

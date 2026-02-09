@@ -35,7 +35,7 @@ def main() -> int:
     render_ascii(maze)
     # run_mlx_2d(maze)
     run_mlx_3d(maze)
-    print(maze.seed)
+    print("seed", maze.seed)
     return 0
 
 
