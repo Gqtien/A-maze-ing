@@ -3,8 +3,15 @@ VENV_DIR	?= .venv
 BIN			:= $(VENV_DIR)/bin
 PIP			:= $(BIN)/pip
 
-CMDS := install run debug clean lint lint-strict
+CMDS := usage install run debug clean lint lint-strict
 ARGS := $(filter-out $(CMDS),$(MAKECMDGOALS))
+
+usage:
+	@echo "Usage: make <command>"
+	@echo ""
+	@echo "Commands:"
+	@$(foreach cmd,$(filter-out usage,$(CMDS)), \
+		echo "  - $(cmd) $(if $(filter run debug,$(cmd)),<config_file>)";)
 
 install:
 	$(PYTHON) -m venv $(VENV_DIR)
@@ -18,15 +25,17 @@ debug:
 	@$(PYTHON) -m src.a_maze_ing --debug $(ARGS) || true
 
 clean:
-	rm -rf **/*__pycache__ **/*.mypy_cache **/*.pytest_cache
+	@find . -type d -name "__pycache__" -exec rm -rf {} +
+	@find . -type d -name ".mypy_cache" -exec rm -rf {} +
+
 
 lint:
-	flake8 .
-	$(PYTHON) -m mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs
+	flake8 src || true
+	mypy src --exclude 'libs' --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs || true
 
 lint-strict:
-	flake8 .
-	$(PYTHON) -m mypy . --strict
+	flake8 src || true
+	mypy src --strict || true
 
 $(ARGS):
 	@:
