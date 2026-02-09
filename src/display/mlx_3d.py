@@ -130,20 +130,34 @@ class Renderer:
 
     def render(self) -> None:
         """Render."""
+        # sky and floor
+        half_size: int = self.buffer_b.nbytes // 2
+        floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, big endian
+        sky_color: bytes = b'\xEB\xCE\x87\xFF'
+        repeats = half_size // len(floor_color)
+        self.buffer_b[:half_size] = sky_color * repeats
+        self.buffer_b[half_size:] = floor_color * repeats
+
+        # raytracing
         line_width: int = 5
         for x in range(0, self.width, line_width):
             perp_wall_dist, side = self.cast_ray(x)
-            if perp_wall_dist < 1e-6:
-                print("dist is very small")
-                continue
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
-            # print(line_height)
-            # print(perp_wall_dist)
             self.draw_rect(
                 Rect(x, line_y, line_width, line_height),
                 0xFFFF0000 if side == 1 else 0xFF0000FF
             )
+
+        # mlx stuff
+        self.mlx.mlx_put_image_to_window(
+            self.mlx_ptr, self.win_ptr, self.img_ptr_a, 0, 0
+        )
+        self.mlx.mlx_sync(self.mlx_ptr, 0, self.win_ptr)
+
+        # swap draw buffers
+        self.img_ptr_a, self.img_ptr_b = self.img_ptr_b, self.img_ptr_a
+        self.buffer_a, self.buffer_b = self.buffer_b, self.buffer_a
 
     def cast_ray(self, x: int) -> Vec2:
         """Get the distance from a wall in a dir."""
@@ -222,24 +236,8 @@ class Renderer:
 
     def loop(self, _: Any) -> None:
         """Loop."""
-        self.clear()  # TODO
-        self.mlx.mlx_clear_window(self.mlx_ptr, self.win_ptr)
-
         self.render()
-
-        self.mlx.mlx_put_image_to_window(
-            self.mlx_ptr, self.win_ptr, self.img_ptr_a, 0, 0
-        )
-        self.mlx.mlx_sync(self.mlx_ptr, 0, self.win_ptr)
-
-        # swap draw buffers
-        self.img_ptr_a, self.img_ptr_b = self.img_ptr_b, self.img_ptr_a
-        self.buffer_a, self.buffer_b = self.buffer_b, self.buffer_a
-
         self.camera.move(self.keys)
-        print(self.camera.pos)
-        print(self.camera.dir)
-        print()
 
     def clear(self) -> None:
         """Clear the memory buffer."""
