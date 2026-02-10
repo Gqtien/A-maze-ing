@@ -22,13 +22,13 @@ install:
 	$(PIP) install flake8 mypy
 
 run:
-	@$(PYTHON) -m src.a_maze_ing $(ARGS) || true
+	@$(PYTHON) src/a_maze_ing.py $(ARGS) || true
 
 profile:
-	@$(PYTHON) -m cProfile -m src.a_maze_ing $(ARGS) || true
+	@$(PYTHON) -m cProfile src/a_maze_ing.py $(ARGS) || true
 
 debug:
-	@$(PYTHON) -m src.a_maze_ing --debug $(ARGS) || true
+	@$(PYTHON) src/a_maze_ing.py --debug $(ARGS) || true
 
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
