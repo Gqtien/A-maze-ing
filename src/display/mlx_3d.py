@@ -16,7 +16,7 @@ class Vec2:
     def __eq__(self, other: object) -> bool:
         """Equal."""
         if not isinstance(other, Vec2):
-            raise TypeError(
+            raise NotImplementedError(
                 f"Cannot compare Vec2 with {type(other).__name__}"
             )
         return self.x == other.x and self.y == other.y
@@ -24,10 +24,6 @@ class Vec2:
     def __str__(self) -> str:
         """Str."""
         return f"({self.x:.2f}, {self.y:.2f})"
-
-    def copy(self) -> "Vec2":
-        """Copy the object."""
-        return Vec2(self.x, self.y)
 
     def length(self) -> float:
         """Get length."""
@@ -41,9 +37,8 @@ class Vec2:
         self.x /= length
         self.y /= length
 
-    def rotate(self, degrees: float) -> None:
+    def rotate(self, radians: float) -> None:
         """Rotate by given degrees."""
-        radians = math.radians(degrees)
         cos_a = math.cos(radians)
         sin_a = math.sin(radians)
 
@@ -51,6 +46,7 @@ class Vec2:
 
         self.x = self.x * cos_a - self.y * sin_a
         self.y = tmp_x * sin_a + self.y * cos_a
+        self.normalize()
 
 
 @dataclass
@@ -63,30 +59,32 @@ class Rect:
     height: int
 
 
-@dataclass
 class Camera:
     """Camera."""
 
-    pos: Vec2
-    dir: Vec2
-    FOV: int = 60  # TODO: load it from config
+    def __init__(self, pos: Vec2, direction: Vec2, FOV: int) -> None:
+        """Init cam."""
+        self.pos: Vec2 = pos
+        self.direction: Vec2 = direction
+        self.FOV: int = FOV
+        self.fov_scale = math.tan(math.radians(self.FOV) / 2)
 
-    speed: float = 0.1  # block/frame
+        self.speed: float = 0.1  # block/frame
 
     def move(self, keys: set[int]) -> None:
         """Move the camera."""
         # TODO: collisions
         if 65363 in keys:  # right arrow
-            self.dir.rotate(10)
+            self.direction.rotate(0.08726646)
         elif 65361 in keys:  # left arrow
-            self.dir.rotate(-10)
+            self.direction.rotate(-0.08726646)
 
         if 65364 in keys:  # down arrow
-            self.pos.x -= self.dir.x * self.speed
-            self.pos.y -= self.dir.y * self.speed
+            self.pos.x -= self.direction.x * self.speed
+            self.pos.y -= self.direction.y * self.speed
         elif 65362 in keys:  # up arrow
-            self.pos.x += self.dir.x * self.speed
-            self.pos.y += self.dir.y * self.speed
+            self.pos.x += self.direction.x * self.speed
+            self.pos.y += self.direction.y * self.speed
 
 
 class Renderer:
@@ -105,12 +103,13 @@ class Renderer:
         """Init the mlx, hook functions."""
         self.width: int = width
         self.height: int = height
-        self.time: str = title
+        self.title: str = title
         self.maze: Maze = maze
         self.keys: set[int] = set()
         self.camera: Camera = Camera(  # TODO: choose pos and dir dynamicly
             pos=Vec2(1.5, 1.5),
-            dir=Vec2(1, 0)
+            direction=Vec2(1, 0),
+            FOV=FOV,
         )
 
         # mlx
@@ -138,8 +137,10 @@ class Renderer:
 
         # precomputed values
         self.half_buffer_size: int = self.buffer_b.nbytes // 2
-        floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, big endian
+        floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, litte endian
         sky_color: bytes = b'\xEB\xCE\x87\xFF'
+        self.blue: bytes = b'\xFF\x00\x00\xFF'
+        self.red: bytes = b'\x00\x00\xFF\xFF'
         repeats = self.half_buffer_size // len(floor_color)
         self.sky: bytes = sky_color * repeats
         self.floor: bytes = floor_color * repeats
@@ -153,7 +154,6 @@ class Renderer:
         self.buffer_b[self.half_buffer_size:] = self.floor
 
         # raytracing
-        self.camera.dir.normalize()
         for x in range(0, self.width):
             perp_wall_dist, side = self.cast_ray(x)
             line_height: int = int(self.height // perp_wall_dist)
@@ -162,7 +162,7 @@ class Renderer:
                 y0=line_y,
                 y1=line_y + line_height,
                 x=x,
-                argb=0xFFFF0000 if side == 1 else 0xFF0000FF
+                argb=self.blue if side == 1 else self.red
             )
 
         # mlx stuff
@@ -176,38 +176,38 @@ class Renderer:
 
     def cast_ray(self, x: int) -> Vec2:
         """Get the distance from a wall in a dir."""
-        dist_x: float = self.camera.pos.x
-        dist_y: float = self.camera.pos.y
-
         # FOV stuff and camera plane
-        plane_x = -self.camera.dir.y
-        plane_y = self.camera.dir.x
-        fov_scale = math.tan(math.radians(self.camera.FOV) / 2)
-        plane_x *= fov_scale
-        plane_y *= fov_scale
+        plane_x = -self.camera.direction.y
+        plane_y = self.camera.direction.x
+        # TODO: move out, precompute
+        plane_x *= self.camera.fov_scale
+        plane_y *= self.camera.fov_scale
 
         camera_x: float = 2 * x / self.width - 1  # x in [-1; 1]
 
-        ray_dir: Vec2 = self.camera.dir.copy()
-        ray_dir.x += plane_x * camera_x
-        ray_dir.y += plane_y * camera_x
-        ray_dir.normalize()
+        # TODO: scalar ?
+        # ray_dir_x = dir.x + plane_x * camera_x
+        # ray_dir_y = dir.y + plane_y * camera_x
 
-        # NOTE: could be precomputed outside the loop ... maybe ?
-        dx: float = abs(1 / ray_dir.x) if abs(ray_dir.x) > 0.01 else 1e30
-        dy: float = abs(1 / ray_dir.y) if abs(ray_dir.y) > 0.01 else 1e30
+        ray_dir_x: float = self.camera.direction.x
+        ray_dir_y: float = self.camera.direction.y
+        ray_dir_x += plane_x * camera_x
+        ray_dir_y += plane_y * camera_x
+
+        dx: float = abs(1 / ray_dir_x) if abs(ray_dir_x) > 0.01 else 1e30
+        dy: float = abs(1 / ray_dir_y) if abs(ray_dir_y) > 0.01 else 1e30
 
         map_x: int = int(self.camera.pos.x)
         map_y: int = int(self.camera.pos.y)
 
         # init step_x (for map indexes) and dist_x
-        if ray_dir.x > 0:
+        if ray_dir_x > 0:
             step_x: int = 1
             dist_x: float = (map_x + 1.0 - self.camera.pos.x) * dx
         else:
             step_x: int = -1
             dist_x: float = (self.camera.pos.x - map_x) * dx
-        if ray_dir.y > 0:
+        if ray_dir_y > 0:
             step_y: int = 1
             dist_y: float = (map_y + 1.0 - self.camera.pos.y) * dy
         else:
@@ -252,16 +252,15 @@ class Renderer:
         """Clear the memory buffer."""
         self.buffer_b[:] = b"\x00" * self.buffer_b.nbytes
 
-    def draw_vertical_line(self, y0: int, y1: int, x: int, argb: int) -> None:
+    def draw_vertical_line(self, y0: int, y1: int, x: int, argb: bytes) -> None:
         """Draw a vertical line."""
         # Skip out-of-bounds pixels
         y0 = max(0, y0)
         y1 = min(y1, self.height - 1)
 
-        color_bytes: bytes = argb.to_bytes(4, 'little')
         for y in range(y0, y1):
             offset = y * self.line_size + x * 4
-            self.buffer_b[offset:offset + 4] = color_bytes
+            self.buffer_b[offset:offset + 4] = argb
 
     def draw_rect(self, rect: Rect, argb: int) -> None:
         """Draw a rect."""
