@@ -1,10 +1,8 @@
-"""Wolfenstein-like fake 3D raytraced rendering."""
-
-from libs.mlx.mlx import Mlx
-from typing import Any
-from src.core.mazegen import Maze
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+from typing import Any
+from libs.mlx.mlx import Mlx
+from src.core.mazegen import Maze
 
 
 class Vec2:
@@ -27,7 +25,7 @@ class Vec2:
         """Str."""
         return f"({self.x:.2f}, {self.y:.2f})"
 
-    def copy(self) -> 'Vec2':
+    def copy(self) -> "Vec2":
         """Copy the object."""
         return Vec2(self.x, self.y)
 
@@ -94,7 +92,7 @@ class Renderer:
     """Wrap mlx."""
 
     def __init__(
-            self, width: int, height: int, title: str, maze: Maze
+        self, width: int, height: int, title: str, maze: Maze
     ) -> None:
         """Init the mlx, hook functions."""
         self.width: int = width
@@ -132,8 +130,8 @@ class Renderer:
         """Render."""
         # sky and floor
         half_size: int = self.buffer_b.nbytes // 2
-        floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, big endian
-        sky_color: bytes = b'\xEB\xCE\x87\xFF'
+        floor_color: bytes = b"\x67\x67\x67\xff"  # BGRA, big endian
+        sky_color: bytes = b"\xeb\xce\x87\xff"
         repeats = half_size // len(floor_color)
         self.buffer_b[:half_size] = sky_color * repeats
         self.buffer_b[half_size:] = floor_color * repeats
@@ -146,7 +144,7 @@ class Renderer:
             line_y: int = self.height // 2 - line_height // 2
             self.draw_rect(
                 Rect(x, line_y, line_width, line_height),
-                0xFFFF0000 if side == 1 else 0xFF0000FF
+                0xFFFF0000 if side == 1 else 0xFF0000FF,
             )
 
         # mlx stuff
@@ -223,9 +221,9 @@ class Renderer:
             hit = grid[map_y][map_x]
 
         if is_vertical:
-            perp_wall_dist = (dist_x - dx)
+            perp_wall_dist = dist_x - dx
         else:
-            perp_wall_dist = (dist_y - dy)
+            perp_wall_dist = dist_y - dy
 
         return perp_wall_dist, is_vertical
 
