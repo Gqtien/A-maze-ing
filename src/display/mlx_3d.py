@@ -1,10 +1,8 @@
-"""Wolfenstein-like fake 3D raytraced rendering."""
-
-from libs.mlx.mlx import Mlx
-from typing import Any
-from src.core.mazegen import Maze
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+from typing import Any
+from libs.mlx.mlx import Mlx
+from src.core.mazegen import Maze
 
 
 class Vec2:
@@ -18,7 +16,7 @@ class Vec2:
     def __eq__(self, other: object) -> bool:
         """Equal."""
         if not isinstance(other, Vec2):
-            raise NotImplementedError(
+            raise TypeError(
                 f"Cannot compare Vec2 with {type(other).__name__}"
             )
         return self.x == other.x and self.y == other.y
@@ -27,7 +25,7 @@ class Vec2:
         """Str."""
         return f"({self.x:.2f}, {self.y:.2f})"
 
-    def copy(self) -> 'Vec2':
+    def copy(self) -> "Vec2":
         """Copy the object."""
         return Vec2(self.x, self.y)
 
@@ -95,7 +93,14 @@ class Renderer:
     """Wrap mlx."""
 
     def __init__(
-            self, width: int, height: int, title: str, maze: Maze
+        self,
+        width: int,
+        height: int,
+        title: str,
+        entry: tuple[int, int],
+        exit: tuple[int, int],
+        FOV: int,
+        maze: Maze,
     ) -> None:
         """Init the mlx, hook functions."""
         self.width: int = width
@@ -227,9 +232,9 @@ class Renderer:
             hit = self.grid[map_y][map_x]
 
         if is_vertical:
-            perp_wall_dist = (dist_x - dx)
+            perp_wall_dist = dist_x - dx
         else:
-            perp_wall_dist = (dist_y - dy)
+            perp_wall_dist = dist_y - dy
 
         return perp_wall_dist, is_vertical
 
@@ -291,7 +296,16 @@ class Renderer:
         self.keys.discard(key)
 
 
-def run_mlx_3d(maze: Maze) -> None:
+def run_mlx_3d(maze: Maze, settings: dict[str, Any]) -> None:
     """Run the 3d rendering."""
-    renderer = Renderer(800, 600, "Outstanding", maze)
+    print(settings)
+    renderer = Renderer(
+        settings["WIN_W"],
+        settings["WIN_H"],
+        settings["WIN_TITLE"],
+        settings["ENTRY"],
+        settings["EXIT"],
+        settings["FOV"],
+        maze
+    )
     renderer.run()

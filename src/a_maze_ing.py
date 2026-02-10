@@ -33,8 +33,17 @@ def main() -> int:
     )
 
     render_ascii(maze)
-    # run_mlx_2d(maze)
-    run_mlx_3d(maze)
+    
+    settings = {
+        "ENTRY": require(config, "ENTRY"),
+        "EXIT": require(config, "EXIT"),
+        "WIN_W": config.get("WIN_W", 800),
+        "WIN_H": config.get("WIN_H", 600),
+        "WIN_TITLE": config.get("WIN_TITLE", "A-Maze-Ing"),
+        "FOV": config.get("FOV", 60)
+    }
+    run_mlx_3d(maze, settings)
+
     print("seed", maze.seed)
     return 0
 
