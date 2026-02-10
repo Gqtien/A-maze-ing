@@ -77,6 +77,7 @@ class Camera:
 
     def move(self, keys: set[int]) -> None:
         """Move the camera."""
+        # TODO: collisions
         if 65363 in keys:  # right arrow
             self.dir.rotate(10)
         elif 65361 in keys:  # left arrow
@@ -100,6 +101,12 @@ class Renderer:
         self.width: int = width
         self.height: int = height
         self.time: str = title
+        self.maze: Maze = maze
+        self.keys: set[int] = set()
+        self.camera: Camera = Camera(  # TODO: choose pos and dir dynamicly
+            pos=Vec2(1.5, 1.5),
+            dir=Vec2(1, 0)
+        )
 
         # mlx
         self.mlx = Mlx()
@@ -107,12 +114,14 @@ class Renderer:
         self.win_ptr = self.mlx.mlx_new_window(
             self.mlx_ptr, width, height, title
         )
+
+        # a/b buffers for buffer swapping
         self.img_ptr_a = self.mlx.mlx_new_image(self.mlx_ptr, width, height)
         self.img_ptr_b = self.mlx.mlx_new_image(self.mlx_ptr, width, height)
-        self.buffer_a, self.bits_per_pixel, self.line_size, _ = (
+        self.buffer_a, self.bits_per_pixel, self.line_size, _endian = (
             self.mlx.mlx_get_data_addr(self.img_ptr_a)
         )
-        self.buffer_b, self.bits_per_pixel, self.line_size, _ = (
+        self.buffer_b, self.bits_per_pixel, self.line_size, _endian = (
             self.mlx.mlx_get_data_addr(self.img_ptr_b)
         )
 
@@ -122,38 +131,39 @@ class Renderer:
         self.mlx.mlx_hook(self.win_ptr, 2, 1, self.key_down_hook, param=None)
         self.mlx.mlx_hook(self.win_ptr, 3, 2, self.key_up_hook, param=None)
 
-        self.maze: Maze = maze
-        self.camera: Camera = Camera(pos=Vec2(1.5, 1.5), dir=Vec2(1, 0))
-        self.keys: set[int] = set()
+        # precomputed values
+        self.half_buffer_size: int = self.buffer_b.nbytes // 2
+        floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, big endian
+        sky_color: bytes = b'\xEB\xCE\x87\xFF'
+        repeats = self.half_buffer_size // len(floor_color)
+        self.sky: bytes = sky_color * repeats
+        self.floor: bytes = floor_color * repeats
 
-        self.mlx.mlx_do_sync(self.mlx_ptr)
+        self.grid: list[list[bool]] = self.maze.to_grid()
 
     def render(self) -> None:
         """Render."""
-        # sky and floor
-        half_size: int = self.buffer_b.nbytes // 2
-        floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, big endian
-        sky_color: bytes = b'\xEB\xCE\x87\xFF'
-        repeats = half_size // len(floor_color)
-        self.buffer_b[:half_size] = sky_color * repeats
-        self.buffer_b[half_size:] = floor_color * repeats
+        # sky and floor, precomputed !
+        self.buffer_b[:self.half_buffer_size] = self.sky
+        self.buffer_b[self.half_buffer_size:] = self.floor
 
         # raytracing
-        line_width: int = 5
-        for x in range(0, self.width, line_width):
+        self.camera.dir.normalize()
+        for x in range(0, self.width):
             perp_wall_dist, side = self.cast_ray(x)
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
-            self.draw_rect(
-                Rect(x, line_y, line_width, line_height),
-                0xFFFF0000 if side == 1 else 0xFF0000FF
+            self.draw_vertical_line(
+                y0=line_y,
+                y1=line_y + line_height,
+                x=x,
+                argb=0xFFFF0000 if side == 1 else 0xFF0000FF
             )
 
         # mlx stuff
         self.mlx.mlx_put_image_to_window(
             self.mlx_ptr, self.win_ptr, self.img_ptr_a, 0, 0
         )
-        self.mlx.mlx_sync(self.mlx_ptr, 0, self.win_ptr)
 
         # swap draw buffers
         self.img_ptr_a, self.img_ptr_b = self.img_ptr_b, self.img_ptr_a
@@ -164,12 +174,7 @@ class Renderer:
         dist_x: float = self.camera.pos.x
         dist_y: float = self.camera.pos.y
 
-        grid: list[list[bool]] = self.maze.to_grid()
-
-        # TODO: remove
-        self.camera.dir.normalize()
-
-        # NOTE: FOV stuff and camera plane
+        # FOV stuff and camera plane
         plane_x = -self.camera.dir.y
         plane_y = self.camera.dir.x
         fov_scale = math.tan(math.radians(self.camera.FOV) / 2)
@@ -181,10 +186,9 @@ class Renderer:
         ray_dir: Vec2 = self.camera.dir.copy()
         ray_dir.x += plane_x * camera_x
         ray_dir.y += plane_y * camera_x
-
-        # NOTE: might remove later
         ray_dir.normalize()
 
+        # NOTE: could be precomputed outside the loop ... maybe ?
         dx: float = abs(1 / ray_dir.x) if abs(ray_dir.x) > 0.01 else 1e30
         dy: float = abs(1 / ray_dir.y) if abs(ray_dir.y) > 0.01 else 1e30
 
@@ -220,7 +224,7 @@ class Renderer:
                 break
             if map_x >= self.maze.width - 1 or map_y >= self.maze.height - 1:
                 break
-            hit = grid[map_y][map_x]
+            hit = self.grid[map_y][map_x]
 
         if is_vertical:
             perp_wall_dist = (dist_x - dx)
@@ -243,6 +247,17 @@ class Renderer:
         """Clear the memory buffer."""
         self.buffer_b[:] = b"\x00" * self.buffer_b.nbytes
 
+    def draw_vertical_line(self, y0: int, y1: int, x: int, argb: int) -> None:
+        """Draw a vertical line."""
+        # Skip out-of-bounds pixels
+        y0 = max(0, y0)
+        y1 = min(y1, self.height - 1)
+
+        color_bytes: bytes = argb.to_bytes(4, 'little')
+        for y in range(y0, y1):
+            offset = y * self.line_size + x * 4
+            self.buffer_b[offset:offset + 4] = color_bytes
+
     def draw_rect(self, rect: Rect, argb: int) -> None:
         """Draw a rect."""
         for dx in range(rect.width):
@@ -254,9 +269,9 @@ class Renderer:
         # Skip out-of-bounds pixels
         if x < 0 or x >= self.width or y < 0 or y >= self.height:
             return
-        for i in range(4):
-            offset = y * self.line_size + x * (self.bits_per_pixel // 8) + i
-            self.buffer_b[offset] = argb >> i * 8 & 0xFF
+
+        offset = y * self.line_size + x * 4
+        self.buffer_b[offset:offset + 4] = argb.to_bytes(4, 'little')
 
     def key_down_hook(self, key: int, _param: None) -> None:
         """Add keys to self.keys."""
@@ -278,5 +293,5 @@ class Renderer:
 
 def run_mlx_3d(maze: Maze) -> None:
     """Run the 3d rendering."""
-    renderer = Renderer(800, 600, "title - 3d", maze)
+    renderer = Renderer(800, 600, "Outstanding", maze)
     renderer.run()
