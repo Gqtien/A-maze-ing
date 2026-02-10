@@ -1,6 +1,6 @@
 """Render (print) an ascii version of the maze."""
 
-from src.core.mazegen import Maze
+from core.mazegen import Maze
 
 
 def render_ascii(maze: Maze) -> None:

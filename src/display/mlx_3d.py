@@ -2,7 +2,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 from libs.mlx.mlx import Mlx
-from src.core.mazegen import Maze
+from core.mazegen import Maze
 
 
 class Vec2:

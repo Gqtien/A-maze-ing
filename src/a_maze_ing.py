@@ -1,7 +1,7 @@
 import sys
 from typing import Any, Dict
-from src.core import Maze, parse_config
-from src.display import render_ascii, run_mlx_3d  # , run_mlx_2d
+from core import Maze, parse_config
+from display import render_ascii, run_mlx_3d  # , run_mlx_2d
 
 
 def require(config: Dict[str, Any], key: str) -> Any:

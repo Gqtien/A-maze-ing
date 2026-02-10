@@ -1,5 +1,5 @@
-from src.core.mazegen import Maze
-from src.core.config import parse_config
+from core.mazegen import Maze
+from core.config import parse_config
 
 
 __all__ = [
