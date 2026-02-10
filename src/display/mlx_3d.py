@@ -16,7 +16,7 @@ class Vec2:
     def __eq__(self, other: object) -> bool:
         """Equal."""
         if not isinstance(other, Vec2):
-            raise NotImplementedError(
+            raise TypeError(
                 f"Cannot compare Vec2 with {type(other).__name__}"
             )
         return self.x == other.x and self.y == other.y
@@ -92,7 +92,14 @@ class Renderer:
     """Wrap mlx."""
 
     def __init__(
-        self, width: int, height: int, title: str, maze: Maze
+        self,
+        width: int,
+        height: int,
+        title: str,
+        entry: tuple[int, int],
+        exit: tuple[int, int],
+        FOV: int,
+        maze: Maze,
     ) -> None:
         """Init the mlx, hook functions."""
         self.width: int = width
@@ -121,7 +128,11 @@ class Renderer:
         self.mlx.mlx_hook(self.win_ptr, 3, 2, self.key_up_hook, param=None)
 
         self.maze: Maze = maze
-        self.camera: Camera = Camera(pos=Vec2(1.5, 1.5), dir=Vec2(1, 0))
+        self.camera: Camera = Camera(
+            pos = Vec2(*(v + 0.5 for v in entry)),
+            dir=Vec2(1, 0),
+            FOV=FOV
+        )
         self.keys: set[int] = set()
 
         self.mlx.mlx_do_sync(self.mlx_ptr)
@@ -274,7 +285,16 @@ class Renderer:
         self.keys.discard(key)
 
 
-def run_mlx_3d(maze: Maze) -> None:
+def run_mlx_3d(maze: Maze, settings: dict[str, Any]) -> None:
     """Run the 3d rendering."""
-    renderer = Renderer(800, 600, "title - 3d", maze)
+    print(settings)
+    renderer = Renderer(
+        settings["WIN_W"],
+        settings["WIN_H"],
+        settings["WIN_TITLE"],
+        settings["ENTRY"],
+        settings["EXIT"],
+        settings["FOV"],
+        maze
+    )
     renderer.run()

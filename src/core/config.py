@@ -11,6 +11,16 @@ class ConfigKey(Enum):
     PERFECT = bool
     SEED = int
     OUTPUT_FILE = str
+    WIN_W = int
+    WIN_H = int
+    WIN_TITLE = str
+    FOV = int
+
+
+class Extremum(Enum):
+    WIN_W = int(os.environ.get("SCREEN_WIDTH", "1920"))
+    WIN_H = int(os.environ.get("SCREEN_HEIGHT", "1080"))
+    FOV = 180
 
 
 def cast_value(value: str, type: type) -> Any:
@@ -29,6 +39,30 @@ def cast_value(value: str, type: type) -> Any:
             raise TypeError(f"Unsupported type: {type}")
     except ValueError:
         raise ValueError(f"Invalid value for type {type}: {value}")
+
+
+def validate_bounds(config: Dict[str, Any]) -> None:
+    if not all(key in config for key in ("WIDTH", "HEIGHT", "ENTRY", "EXIT")):
+        return
+
+    width = config.get("WIDTH")
+    height = config.get("HEIGHT")
+
+    for key in ("ENTRY", "EXIT"):
+        if key not in config:
+            continue
+
+        x, y = config[key]
+
+        if not (0 <= x < width):  # if width = 25 and point x = 25, gen crash
+            raise ValueError(
+                f"{key} 'x' out of bounds: {x} (map width: {width})"
+            )
+
+        if not (0 <= y < height):  # if height = 25 and point y = 25, gen crash
+            raise ValueError(
+                f"{key} 'y' out of bounds: {y} (map height: {height})"
+            )
 
 
 def parse_config(path: str) -> Dict[str, Any]:
@@ -60,6 +94,16 @@ def parse_config(path: str) -> Dict[str, Any]:
                     + f"(expected {expected_type.__name__}): {value}"
                 ) from e
 
+            if (
+                key in Extremum.__members__
+                and casted_value > Extremum[key].value
+            ):
+                raise ValueError(
+                    f"Invalid value for {key!r}"
+                    + f"(max {Extremum[key].value}): {value}"
+                )
+
             config[key] = casted_value
+            validate_bounds(config)
 
     return config

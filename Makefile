@@ -6,6 +6,9 @@ PIP			:= $(BIN)/pip
 CMDS := usage install run debug clean lint lint-strict
 ARGS := $(filter-out $(CMDS),$(MAKECMDGOALS))
 
+export SCREEN_WIDTH := $(shell xrandr --current | grep '*' | uniq | awk '{print $1}' | cut -d 'x' -f1)
+export SCREEN_HEIGHT := $(shell xrandr --current | grep '*' | uniq | awk '{print $1}' | cut -d 'x' -f2 | cut -d ' ' -f1)
+
 usage:
 	@echo "Usage: make <command>"
 	@echo ""
