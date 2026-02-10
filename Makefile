@@ -3,7 +3,7 @@ VENV_DIR	?= .venv
 BIN			:= $(VENV_DIR)/bin
 PIP			:= $(BIN)/pip
 
-CMDS := usage install run debug clean lint lint-strict
+CMDS := usage install run debug clean lint lint-strict profile
 ARGS := $(filter-out $(CMDS),$(MAKECMDGOALS))
 
 export SCREEN_WIDTH := $(shell xrandr --current | grep '*' | uniq | awk '{print $1}' | cut -d 'x' -f1)
@@ -23,6 +23,9 @@ install:
 
 run:
 	@$(PYTHON) -m src.a_maze_ing $(ARGS) || true
+
+profile:
+	@$(PYTHON) -m cProfile -m src.a_maze_ing $(ARGS) || true
 
 debug:
 	@$(PYTHON) -m src.a_maze_ing --debug $(ARGS) || true
