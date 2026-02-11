@@ -155,14 +155,14 @@ class Renderer:
 
         # raytracing
         for x in range(0, self.width):
-            perp_wall_dist, side = self.cast_ray(x)
+            perp_wall_dist, is_vertical = self.cast_ray(x)
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
             self.draw_vertical_line(
                 y0=line_y,
                 y1=line_y + line_height,
                 x=x,
-                argb=self.blue if side == 1 else self.red
+                argb=self.blue if is_vertical else self.red
             )
 
         # mlx stuff
@@ -174,7 +174,7 @@ class Renderer:
         self.img_ptr_a, self.img_ptr_b = self.img_ptr_b, self.img_ptr_a
         self.buffer_a, self.buffer_b = self.buffer_b, self.buffer_a
 
-    def cast_ray(self, x: int) -> Vec2:
+    def cast_ray(self, x: int) -> tuple[float, bool]:
         """Get the distance from a wall in a dir."""
         # FOV stuff and camera plane
         plane_x = -self.camera.direction.y
@@ -201,18 +201,22 @@ class Renderer:
         map_y: int = int(self.camera.pos.y)
 
         # init step_x (for map indexes) and dist_x
+        step_x: int = 0
+        step_y: int = 0
+        dist_x: float = 0.0
+        dist_y: float = 0.0
         if ray_dir_x > 0:
-            step_x: int = 1
-            dist_x: float = (map_x + 1.0 - self.camera.pos.x) * dx
+            step_x = 1
+            dist_x = (map_x + 1.0 - self.camera.pos.x) * dx
         else:
-            step_x: int = -1
-            dist_x: float = (self.camera.pos.x - map_x) * dx
+            step_x = -1
+            dist_x = (self.camera.pos.x - map_x) * dx
         if ray_dir_y > 0:
-            step_y: int = 1
-            dist_y: float = (map_y + 1.0 - self.camera.pos.y) * dy
+            step_y = 1
+            dist_y = (map_y + 1.0 - self.camera.pos.y) * dy
         else:
-            step_y: int = -1
-            dist_y: float = (self.camera.pos.y - map_y) * dy
+            step_y = -1
+            dist_y = (self.camera.pos.y - map_y) * dy
 
         hit: bool = False
         while not hit:
@@ -231,6 +235,7 @@ class Renderer:
                 break
             hit = self.grid[map_y][map_x]
 
+        perp_wall_dist: float = 0.0
         if is_vertical:
             perp_wall_dist = dist_x - dx
         else:
@@ -252,7 +257,9 @@ class Renderer:
         """Clear the memory buffer."""
         self.buffer_b[:] = b"\x00" * self.buffer_b.nbytes
 
-    def draw_vertical_line(self, y0: int, y1: int, x: int, argb: bytes) -> None:
+    def draw_vertical_line(
+            self, y0: int, y1: int, x: int, argb: bytes
+    ) -> None:
         """Draw a vertical line."""
         # Skip out-of-bounds pixels
         y0 = max(0, y0)
