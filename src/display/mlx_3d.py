@@ -225,9 +225,9 @@ class Renderer:
                 map_y += step_y
                 is_vertical = False
 
-            if map_x <= 0 or map_y <= 0:
+            if map_x < 0 or map_y < 0:
                 break
-            if map_x >= self.maze.width - 1 or map_y >= self.maze.height - 1:
+            if map_x >= len(self.grid[0]) - 1 or map_y >= len(self.grid) - 1:
                 break
             hit = self.grid[map_y][map_x]
 
