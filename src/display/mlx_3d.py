@@ -3,6 +3,29 @@ from dataclasses import dataclass
 from typing import Any
 from libs.mlx.mlx import Mlx
 from core.mazegen import Maze
+from pynput import keyboard
+import threading
+
+# Global variables to track key states
+keys_pressed: set[str | keyboard.Key] = set()
+
+
+def on_press(key: keyboard.Key) -> None:
+    """Key press callback."""
+    try:
+        keys_pressed.add(key.char)
+    except AttributeError:
+        keys_pressed.add(key)
+
+
+def on_release(key: keyboard.Key) -> None:
+    """Key release callback."""
+    try:
+        keys_pressed.remove(key.char)
+    except AttributeError:
+        keys_pressed.remove(key)
+    except KeyError:
+        pass
 
 
 class Vec2:
@@ -71,20 +94,33 @@ class Camera:
 
         self.speed: float = 0.1  # block/frame
 
-    def move(self, keys: set[int]) -> None:
-        """Update position and direction from currently pressed keys."""
-        # TODO: collisions
-        if 65363 in keys:  # right arrow
+        # Start the keyboard listener in a separate thread
+        listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+        listener_thread = threading.Thread(target=listener.start)
+        listener_thread.daemon = True
+        listener_thread.start()
+
+    def move(self) -> None:
+        """Move the camera."""
+        if keyboard.Key.right in keys_pressed:
             self.direction.rotate(0.08726646)
-        elif 65361 in keys:  # left arrow
+        elif keyboard.Key.left in keys_pressed:
             self.direction.rotate(-0.08726646)
 
-        if 65364 in keys:  # down arrow
-            self.pos.x -= self.direction.x * self.speed
-            self.pos.y -= self.direction.y * self.speed
-        elif 65362 in keys:  # up arrow
+        # TODO: collisions
+        if 'w' in keys_pressed:
             self.pos.x += self.direction.x * self.speed
             self.pos.y += self.direction.y * self.speed
+        elif 's' in keys_pressed:
+            self.pos.x -= self.direction.x * self.speed
+            self.pos.y -= self.direction.y * self.speed
+
+        if 'a' in keys_pressed:
+            self.pos.x += self.direction.y * self.speed
+            self.pos.y -= self.direction.x * self.speed
+        elif 'd' in keys_pressed:
+            self.pos.x -= self.direction.y * self.speed
+            self.pos.y += self.direction.x * self.speed
 
 
 def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
@@ -117,7 +153,6 @@ class Renderer:
         self.height: int = height
         self.title: str = title
         self.maze: Maze = maze
-        self.keys: set[int] = set()
 
         self.grid: list[list[bool]] = self.maze.to_grid()
         ex, ey = entry
@@ -143,10 +178,6 @@ class Renderer:
         )
 
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
-
-        # key hooks
-        self.mlx.mlx_hook(self.win_ptr, 2, 1, self.key_down_hook, param=None)
-        self.mlx.mlx_hook(self.win_ptr, 3, 2, self.key_up_hook, param=None)
 
         # precomputed values
         self.half_buffer_size: int = self.buffer_b.nbytes // 2
@@ -192,22 +223,13 @@ class Renderer:
     def cast_ray(self, x: int) -> tuple[float, bool]:
         """Get the distance from a wall in a dir."""
         # FOV stuff and camera plane
-        plane_x = -self.camera.direction.y
-        plane_y = self.camera.direction.x
-        # TODO: move out, precompute
-        plane_x *= self.camera.fov_scale
-        plane_y *= self.camera.fov_scale
+        plane_x = -self.camera.direction.y * self.camera.fov_scale
+        plane_y = self.camera.direction.x * self.camera.fov_scale
 
         camera_x: float = 2 * x / self.width - 1  # x in [-1; 1]
 
-        # TODO: scalar ?
-        # ray_dir_x = dir.x + plane_x * camera_x
-        # ray_dir_y = dir.y + plane_y * camera_x
-
-        ray_dir_x: float = self.camera.direction.x
-        ray_dir_y: float = self.camera.direction.y
-        ray_dir_x += plane_x * camera_x
-        ray_dir_y += plane_y * camera_x
+        ray_dir_x: float = self.camera.direction.x + plane_x * camera_x
+        ray_dir_y: float = self.camera.direction.y + plane_y * camera_x
 
         dx: float = abs(1 / ray_dir_x) if abs(ray_dir_x) > 0.01 else 1e30
         dy: float = abs(1 / ray_dir_y) if abs(ray_dir_y) > 0.01 else 1e30
@@ -244,18 +266,14 @@ class Renderer:
                 map_y += step_y
                 is_vertical = False
 
+            # clamp map indexes
             if map_x < 0 or map_y < 0:
                 break
             if map_x >= len(self.grid[0]) - 1 or map_y >= len(self.grid) - 1:
                 break
             hit = self.grid[map_y][map_x]
 
-        perp_wall_dist: float = 0.0
-        if is_vertical:
-            perp_wall_dist = dist_x - dx
-        else:
-            perp_wall_dist = dist_y - dy
-
+        perp_wall_dist: float = dist_x - dx if is_vertical else dist_y - dy
         return perp_wall_dist, is_vertical
 
     def run(self) -> None:
@@ -266,7 +284,12 @@ class Renderer:
     def loop(self, _: Any) -> None:
         """Called each frame: render then update camera."""
         self.render()
-        self.camera.move(self.keys)
+        self.camera.move()
+        if keyboard.Key.esc in keys_pressed:
+            self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
+            self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_a)
+            self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_b)
+            self.mlx.mlx_loop_exit(self.mlx_ptr)
 
     def clear(self) -> None:
         """Clear the memory buffer."""
@@ -298,23 +321,6 @@ class Renderer:
 
         offset = y * self.line_size + x * 4
         self.buffer_b[offset:offset + 4] = argb.to_bytes(4, 'little')
-
-    def key_down_hook(self, key: int, _param: None) -> None:
-        """On key press: add to keys set, or quit and free resources on ESC."""
-        match key:
-            case 65307:  # ESC
-                self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
-                self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_a)
-                self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_b)
-                self.mlx.mlx_loop_exit(self.mlx_ptr)
-                return
-            # case _:
-            #     print(f"Pressed key: {key}")
-        self.keys.add(key)
-
-    def key_up_hook(self, key: int, _param: None) -> None:
-        """On key release: remove key from keys set."""
-        self.keys.discard(key)
 
 
 def run_mlx_3d(maze: Maze, settings: dict[str, Any]) -> None:
