@@ -104,25 +104,29 @@ class Maze:
     def _generate(self) -> None:
         """Run generation and returns the maze."""
         rng = random.Random(self.seed)
-        self._backtracking(self.entry[0], self.entry[1], rng)
+        self._backtracking(rng)
 
-    def _backtracking(
-        self,
-        x: int,
-        y: int,
-        rng: random.Random,
-        visited: list[Cell] = [],
-    ) -> None:
-        """Recursive backtracking."""
-        current = self.get_cell(x, y)
-        visited.append(current)
-        neighbors = self.get_neighbors(current)
-        rng.shuffle(neighbors)
-        for neighbor in neighbors:
-            if neighbor in visited:
-                continue
-            self._open_wall_between(current, neighbor)
-            self._backtracking(neighbor.x, neighbor.y, rng, visited)
+    def _backtracking(self, rng: random.Random) -> None:
+        """Iterative backtracking."""
+        stack: list[Cell] = []
+        visited: set[Cell] = set()
+        start = self.get_cell(self.entry[0], self.entry[1])
+        stack.append(start)
+        visited.add(start)
+
+        while stack:
+            current = stack[-1]
+            neighbors = self.get_neighbors(current)
+            unvisited = [n for n in neighbors if n not in visited]
+            rng.shuffle(unvisited)
+
+            if unvisited:
+                neighbor = unvisited[0]
+                self._open_wall_between(current, neighbor)
+                visited.add(neighbor)
+                stack.append(neighbor)
+            else:
+                stack.pop()
 
     def _open_wall_between(self, cell1: Cell, cell2: Cell) -> None:
         """Open path between two adjacent cells."""
