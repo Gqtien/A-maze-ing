@@ -295,8 +295,8 @@ class Renderer:
         dt = now - self.last_frame_time
         self.last_frame_time = now
 
-        self.render()
         self.camera.move(dt)
+        self.render()
         if keyboard.Key.esc in keys_pressed:
             self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
             self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_a)
