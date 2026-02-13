@@ -1,4 +1,5 @@
 import math
+import time
 from dataclasses import dataclass
 from typing import Any
 from libs.mlx.mlx import Mlx
@@ -92,7 +93,10 @@ class Camera:
         self.FOV: int = FOV
         self.fov_scale = math.tan(math.radians(self.FOV) / 2)
 
-        self.speed: float = 0.1  # block/frame
+        # Movement in units per second (independant from frame rate)
+        self.move_speed: float = 2.5
+        self.strafe_speed: float = 1.4
+        self.rotate_speed: float = 2.0
 
         # Start the keyboard listener in a separate thread
         listener = keyboard.Listener(on_press=on_press, on_release=on_release)
@@ -100,27 +104,29 @@ class Camera:
         listener_thread.daemon = True
         listener_thread.start()
 
-    def move(self) -> None:
-        """Move the camera."""
+    def move(self, dt: float) -> None:
+        """Move the camera. dt = time since last frame in seconds."""
+        dt = min(dt, 0.1)
+
         if keyboard.Key.right in keys_pressed:
-            self.direction.rotate(0.08726646)
+            self.direction.rotate(self.rotate_speed * dt)
         elif keyboard.Key.left in keys_pressed:
-            self.direction.rotate(-0.08726646)
+            self.direction.rotate(-self.rotate_speed * dt)
 
         # TODO: collisions
-        if 'w' in keys_pressed:
-            self.pos.x += self.direction.x * self.speed
-            self.pos.y += self.direction.y * self.speed
+        if 'z' in keys_pressed:
+            self.pos.x += self.direction.x * self.move_speed * dt
+            self.pos.y += self.direction.y * self.move_speed * dt
         elif 's' in keys_pressed:
-            self.pos.x -= self.direction.x * self.speed
-            self.pos.y -= self.direction.y * self.speed
+            self.pos.x -= self.direction.x * self.move_speed * dt
+            self.pos.y -= self.direction.y * self.move_speed * dt
 
-        if 'a' in keys_pressed:
-            self.pos.x += self.direction.y * self.speed
-            self.pos.y -= self.direction.x * self.speed
+        if 'q' in keys_pressed:
+            self.pos.x += self.direction.y * self.strafe_speed * dt
+            self.pos.y -= self.direction.x * self.strafe_speed * dt
         elif 'd' in keys_pressed:
-            self.pos.x -= self.direction.y * self.speed
-            self.pos.y += self.direction.x * self.speed
+            self.pos.x -= self.direction.y * self.strafe_speed * dt
+            self.pos.y += self.direction.x * self.strafe_speed * dt
 
 
 def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
@@ -188,6 +194,8 @@ class Renderer:
         repeats = self.half_buffer_size // len(floor_color)
         self.sky: bytes = sky_color * repeats
         self.floor: bytes = floor_color * repeats
+
+        self.last_frame_time: float = time.perf_counter()
 
     def render(self) -> None:
         """
@@ -283,8 +291,12 @@ class Renderer:
 
     def loop(self, _: Any) -> None:
         """Called each frame: render then update camera."""
+        now = time.perf_counter()
+        dt = now - self.last_frame_time
+        self.last_frame_time = now
+
         self.render()
-        self.camera.move()
+        self.camera.move(dt)
         if keyboard.Key.esc in keys_pressed:
             self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
             self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_a)
