@@ -6,15 +6,15 @@ from core.mazegen import Maze
 
 
 class Vec2:
-    """Vector 2d."""
+    """2D vector."""
 
     def __init__(self, x: float, y: float) -> None:
-        """Init."""
+        """Store x, y."""
         self.x: float = x
         self.y: float = y
 
     def __eq__(self, other: object) -> bool:
-        """Equal."""
+        """True if other is a Vec2 with same x and y."""
         if not isinstance(other, Vec2):
             raise NotImplementedError(
                 f"Cannot compare Vec2 with {type(other).__name__}"
@@ -22,15 +22,15 @@ class Vec2:
         return self.x == other.x and self.y == other.y
 
     def __str__(self) -> str:
-        """Str."""
+        """Format as '(x.xx, y.yy)'."""
         return f"({self.x:.2f}, {self.y:.2f})"
 
     def length(self) -> float:
-        """Get length."""
+        """Euclidean norm."""
         return math.sqrt(self.x * self.x + self.y * self.y)
 
     def normalize(self) -> None:
-        """Make lenght 1."""
+        """Make length 1."""
         length = self.length()
         if length < 1e-6:
             return
@@ -38,7 +38,7 @@ class Vec2:
         self.y /= length
 
     def rotate(self, radians: float) -> None:
-        """Rotate by given degrees."""
+        """Rotate in-place by angle in radians (counterclock)."""
         cos_a = math.cos(radians)
         sin_a = math.sin(radians)
 
@@ -51,7 +51,7 @@ class Vec2:
 
 @dataclass
 class Rect:
-    """Rectangle."""
+    """Rectangle in pixel coordinates (x, y, width, height)."""
 
     x: int
     y: int
@@ -60,10 +60,10 @@ class Rect:
 
 
 class Camera:
-    """Camera."""
+    """First-person camera."""
 
     def __init__(self, pos: Vec2, direction: Vec2, FOV: int) -> None:
-        """Init cam."""
+        """pos and direction in grid coords, FOV in degrees."""
         self.pos: Vec2 = pos
         self.direction: Vec2 = direction
         self.FOV: int = FOV
@@ -72,7 +72,7 @@ class Camera:
         self.speed: float = 0.1  # block/frame
 
     def move(self, keys: set[int]) -> None:
-        """Move the camera."""
+        """Update position and direction from currently pressed keys."""
         # TODO: collisions
         if 65363 in keys:  # right arrow
             self.direction.rotate(0.08726646)
@@ -88,7 +88,7 @@ class Camera:
 
 
 def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
-    """Return a direction facing an open corridor."""
+    """First cardinal (E/W/N/S) from pos that points to a non-wall cell."""
     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
         nx, ny = int(pos.x + dx), int(pos.y + dy)
         if 0 <= ny < len(grid) and 0 <= nx < len(grid[0]) and not grid[ny][nx]:
@@ -97,7 +97,7 @@ def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
 
 
 class Renderer:
-    """Wrap mlx."""
+    """MLX window, raycasts the maze grid, handles key input."""
 
     def __init__(
         self,
@@ -109,7 +109,10 @@ class Renderer:
         FOV: int,
         maze: Maze,
     ) -> None:
-        """Init the mlx, hook functions."""
+        """Create window and images,
+           camera at entry facing a corridor,
+           register loop and key hooks.
+        """
         self.width: int = width
         self.height: int = height
         self.title: str = title
@@ -156,7 +159,11 @@ class Renderer:
         self.floor: bytes = floor_color * repeats
 
     def render(self) -> None:
-        """Render."""
+        """
+           Draw sky and floor,
+           cast one ray per column,
+           then swap buffers and put image to window.
+        """
         # sky and floor, precomputed !
         self.buffer_b[:self.half_buffer_size] = self.sky
         self.buffer_b[self.half_buffer_size:] = self.floor
@@ -252,12 +259,12 @@ class Renderer:
         return perp_wall_dist, is_vertical
 
     def run(self) -> None:
-        """Start infinite loop."""
+        """Enter MLX event loop until exit."""
         self.mlx.mlx_loop(self.mlx_ptr)
         self.mlx.mlx_loop_exit(self.mlx_ptr)
 
     def loop(self, _: Any) -> None:
-        """Loop."""
+        """Called each frame: render then update camera."""
         self.render()
         self.camera.move(self.keys)
 
@@ -268,7 +275,7 @@ class Renderer:
     def draw_vertical_line(
             self, y0: int, y1: int, x: int, argb: bytes
     ) -> None:
-        """Draw a vertical line."""
+        """Draw a vertical line at x from y0 to y1."""
         # Skip out-of-bounds pixels
         y0 = max(0, y0)
         y1 = min(y1, self.height - 1)
@@ -278,13 +285,13 @@ class Renderer:
             self.buffer_b[offset:offset + 4] = argb
 
     def draw_rect(self, rect: Rect, argb: int) -> None:
-        """Draw a rect."""
+        """Fill rectangle with a color."""
         for dx in range(rect.width):
             for dy in range(rect.height):
                 self.put_pixel(rect.x + dx, rect.y + dy, argb)
 
     def put_pixel(self, x: int, y: int, argb: int) -> None:
-        """Put a pixel."""
+        """Set one pixel."""
         # Skip out-of-bounds pixels
         if x < 0 or x >= self.width or y < 0 or y >= self.height:
             return
@@ -293,7 +300,7 @@ class Renderer:
         self.buffer_b[offset:offset + 4] = argb.to_bytes(4, 'little')
 
     def key_down_hook(self, key: int, _param: None) -> None:
-        """Add keys to self.keys."""
+        """On key press: add to keys set, or quit and free resources on ESC."""
         match key:
             case 65307:  # ESC
                 self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
@@ -306,12 +313,12 @@ class Renderer:
         self.keys.add(key)
 
     def key_up_hook(self, key: int, _param: None) -> None:
-        """Remove keys from self.keys."""
+        """On key release: remove key from keys set."""
         self.keys.discard(key)
 
 
 def run_mlx_3d(maze: Maze, settings: dict[str, Any]) -> None:
-    """Run the 3d rendering."""
+    """Create renderer from maze and settings, then run the 3D view."""
     print(settings)
     renderer = Renderer(
         settings["WIN_W"],
