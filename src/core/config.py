@@ -17,9 +17,18 @@ class ConfigKey(Enum):
     FOV = int
 
 
+def env_int(name: str, default: str) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except ValueError:
+        return int(default)
+
+
 class Extremum(Enum):
-    WIN_W = int(os.environ.get("SCREEN_WIDTH", "1920"))
-    WIN_H = int(os.environ.get("SCREEN_HEIGHT", "1080"))
+    WIDTH = 1000
+    HEIGHT = 1000
+    WIN_W = env_int("SCREEN_WIDTH", "1920")
+    WIN_H = env_int("SCREEN_HEIGHT", "1080")
     FOV = 180
 
 
@@ -28,17 +37,27 @@ def cast_value(value: str, type: type) -> Any:
         if type is int:
             return int(value)
         elif type is bool:
-            if value.lower() in "true" or "false":
-                return value.lower() == "true"
-            pass
+            v = value.lower()
+            if v == "true":
+                return True
+            if v == "false":
+                return False
+            raise ValueError(f"Invalid boolean: "
+                             f"(expected 'true' or 'false', got {value!r})")
         elif type is str:
             return value
         elif type is tuple:
-            return tuple(map(int, value.strip("()").split(",")))
+            parts = [p.strip() for p in value.strip("()").split(",")]
+            if len(parts) != 2:
+                raise ValueError(
+                    f"Expected exactly 2 comma-separated integers, "
+                    f"got {len(parts)}"
+                )
+            return tuple(map(int, parts))
         else:
             raise TypeError(f"Unsupported type: {type}")
     except ValueError:
-        raise ValueError(f"Invalid value for type {type}: {value}")
+        raise ValueError(f"Invalid value for type {type}: {value!r}")
 
 
 def validate_bounds(config: Dict[str, Any]) -> None:
@@ -54,56 +73,83 @@ def validate_bounds(config: Dict[str, Any]) -> None:
 
         x, y = config[key]
 
-        if not (0 <= x < width):  # if width = 25 and point x = 25, gen crash
+        if not (0 <= x < width):
             raise ValueError(
-                f"{key} 'x' out of bounds: {x} (map width: {width})"
+                f"{key} 'x' out of bounds: map width: {width!r}, got {x!r}"
             )
 
-        if not (0 <= y < height):  # if height = 25 and point y = 25, gen crash
+        if not (0 <= y < height):
             raise ValueError(
-                f"{key} 'y' out of bounds: {y} (map height: {height})"
+                f"{key} 'y' out of bounds: map height: {height!r}, got {y!r}"
             )
 
 
 def parse_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Config file not found at {path}")
+    if os.path.isdir(path):
+        raise IsADirectoryError(f"Config path is a directory, "
+                                f"not a file: {path}")
 
     config: Dict[str, Any] = {}
 
-    with open(path, "r") as file:
-        for line in file:
-            line = line.strip()
+    try:
+        f = open(path, "r", encoding="utf-8")
+    except PermissionError:
+        raise PermissionError(f"Cannot read config file "
+                              f"(permission denied): {path}")
+    except OSError as e:
+        raise OSError(f"Cannot open config file: {path}") from e
 
-            if not line or line.startswith("#"):
-                continue
+    try:
+        with f as file:
+            for line in file:
+                line = line.strip()
 
-            key, value = line.split("=")
-            key = key.strip()
-            value = value.strip()
+                if not line or line.startswith("#"):
+                    continue
 
-            if key not in ConfigKey.__members__:
-                raise ValueError(f"Unknown config parameter: {key!r}")
+                if "=" not in line:
+                    raise ValueError(f"Invalid config line: {line!r}")
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
 
-            expected_type = ConfigKey[key].value
-            try:
-                casted_value = cast_value(value, expected_type)
-            except ValueError as e:
-                raise ValueError(
-                    f"Invalid value for {key!r}"
-                    + f"(expected {expected_type.__name__}): {value}"
-                ) from e
+                if key not in ConfigKey.__members__:
+                    raise ValueError(f"Unknown config parameter: {key!r}")
 
-            if (
-                key in Extremum.__members__
-                and casted_value > Extremum[key].value
-            ):
-                raise ValueError(
-                    f"Invalid value for {key!r}"
-                    + f"(max {Extremum[key].value}): {value}"
-                )
+                expected_type = ConfigKey[key].value
+                try:
+                    casted_value = cast_value(value, expected_type)
+                except ValueError as e:
+                    raise ValueError(
+                        f"Invalid value for {key!r}: "
+                        f"expected {expected_type.__name__}, got {value!r}"
+                    ) from e
 
-            config[key] = casted_value
-            validate_bounds(config)
+                if key in Extremum.__members__:
+                    max_val = Extremum[key].value
+                    if casted_value > max_val:
+                        raise ValueError(
+                            f"Value too high for {key!r}: "
+                            f"max {max_val}, got {value!r}"
+                        )
+                    if key in ("WIDTH", "HEIGHT") and casted_value < 1:
+                        raise ValueError(
+                            f"Value too low for {key!r}: must be >= 1, "
+                            f"got {value!r}"
+                        )
+                    if key in ("WIN_W", "WIN_H", "FOV") and casted_value < 1:
+                        raise ValueError(
+                            f"Value too low for {key!r}: must be >= 1, "
+                            f"got {value!r}"
+                        )
+
+                config[key] = casted_value
+                validate_bounds(config)
+    except UnicodeDecodeError as e:
+        raise ValueError(
+            f"Config file is not valid UTF-8: {path}"
+        ) from e
 
     return config

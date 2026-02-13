@@ -18,7 +18,7 @@ def main() -> int:
 
     try:
         config: Dict[str, Any] = parse_config(sys.argv[1])
-    except (FileNotFoundError, ValueError) as e:
+    except (FileNotFoundError, ValueError, IsADirectoryError) as e:
         print(e)
         exit(1)
 
@@ -33,7 +33,7 @@ def main() -> int:
     )
 
     render_ascii(maze)
-    
+
     settings = {
         "ENTRY": require(config, "ENTRY"),
         "EXIT": require(config, "EXIT"),
