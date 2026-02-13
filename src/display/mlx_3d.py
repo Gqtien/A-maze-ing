@@ -87,6 +87,15 @@ class Camera:
             self.pos.y += self.direction.y * self.speed
 
 
+def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
+    """Return a direction facing an open corridor."""
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        nx, ny = int(pos.x + dx), int(pos.y + dy)
+        if 0 <= ny < len(grid) and 0 <= nx < len(grid[0]) and not grid[ny][nx]:
+            return Vec2(dx, dy)
+    return Vec2(1, 0)
+
+
 class Renderer:
     """Wrap mlx."""
 
@@ -106,11 +115,12 @@ class Renderer:
         self.title: str = title
         self.maze: Maze = maze
         self.keys: set[int] = set()
-        self.camera: Camera = Camera(  # TODO: choose pos and dir dynamicly
-            pos=Vec2(1.5, 1.5),
-            direction=Vec2(1, 0),
-            FOV=FOV,
-        )
+
+        self.grid: list[list[bool]] = self.maze.to_grid()
+        ex, ey = entry
+        pos: Vec2 = Vec2(ex * 3 + 1.5, ey * 3 + 1.5)
+        direction: Vec2 = face_open_corridor(self.grid, pos)
+        self.camera: Camera = Camera(pos=pos, direction=direction, FOV=FOV)
 
         # mlx
         self.mlx = Mlx()
@@ -144,8 +154,6 @@ class Renderer:
         repeats = self.half_buffer_size // len(floor_color)
         self.sky: bytes = sky_color * repeats
         self.floor: bytes = floor_color * repeats
-
-        self.grid: list[list[bool]] = self.maze.to_grid()
 
     def render(self) -> None:
         """Render."""
