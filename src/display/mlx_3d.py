@@ -38,7 +38,7 @@ class Vec2:
         self.y: float = y
 
     def __eq__(self, other: object) -> bool:
-        """True if other is a Vec2 with same x and y."""
+        """Return true if other is a Vec2 with same x and y."""
         if not isinstance(other, Vec2):
             raise NotImplementedError(
                 f"Cannot compare Vec2 with {type(other).__name__}"
@@ -87,7 +87,7 @@ class Camera:
     """First-person camera."""
 
     def __init__(self, pos: Vec2, direction: Vec2, FOV: int) -> None:
-        """pos and direction in grid coords, FOV in degrees."""
+        """Pos and direction in grid coords, FOV in degrees."""
         self.pos: Vec2 = pos
         self.direction: Vec2 = direction
         self.FOV: int = FOV
@@ -104,9 +104,10 @@ class Camera:
         listener_thread.daemon = True
         listener_thread.start()
 
-    def move(self, dt: float) -> None:
-        """Move the camera. dt = time since last frame in seconds."""
-        dt = min(dt, 0.1)
+    def move(self, delta_time_ns: int) -> None:
+        """Move the camera."""
+        # delta time in seconds
+        dt: float = delta_time_ns / 1000000000.0
 
         if keyboard.Key.right in keys_pressed:
             self.direction.rotate(self.rotate_speed * dt)
@@ -151,9 +152,11 @@ class Renderer:
         FOV: int,
         maze: Maze,
     ) -> None:
-        """Create window and images,
-           camera at entry facing a corridor,
-           register loop and key hooks.
+        """Create a renderer.
+
+        create window and images,
+        camera at entry facing a corridor,
+        register mlx loop.
         """
         self.width: int = width
         self.height: int = height
@@ -195,13 +198,14 @@ class Renderer:
         self.sky: bytes = sky_color * repeats
         self.floor: bytes = floor_color * repeats
 
-        self.last_frame_time: float = time.perf_counter()
+        self.last_frame_time: int = time.perf_counter_ns()
 
     def render(self) -> None:
-        """
-           Draw sky and floor,
-           cast one ray per column,
-           then swap buffers and put image to window.
+        """Render the maze.
+
+        Draw sky and floor,
+        cast one ray per column,
+        then swap buffers and put image to window.
         """
         # sky and floor, precomputed !
         self.buffer_b[:self.half_buffer_size] = self.sky
@@ -290,8 +294,8 @@ class Renderer:
         self.mlx.mlx_loop_exit(self.mlx_ptr)
 
     def loop(self, _: Any) -> None:
-        """Called each frame: render then update camera."""
-        now = time.perf_counter()
+        """Render, update camera and dt."""
+        now: int = time.perf_counter_ns()
         dt = now - self.last_frame_time
         self.last_frame_time = now
 
