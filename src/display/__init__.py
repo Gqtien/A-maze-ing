@@ -1,4 +1,4 @@
-from .mlx_3d import Renderer
+from .renderer import Renderer
 
 __all__ = [
     "Renderer",

@@ -1,5 +1,3 @@
-"""Module for generating a maze."""
-
 import random
 from enum import Enum
 
