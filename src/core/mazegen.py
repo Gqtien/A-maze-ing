@@ -93,6 +93,16 @@ class Maze:
         self._generate()
 
     def __str__(self) -> str:
+        """Ascii minimap."""
+        grid = self.to_grid()
+        minimap: str = ""
+        for line in grid:
+            for cell in line:
+                minimap += '██' if cell else "  "
+            minimap += '\n'
+        return minimap
+
+    def __repr__(self) -> str:
         """Hex ascii map."""
         ret: str = ""
         for y in range(self.height):

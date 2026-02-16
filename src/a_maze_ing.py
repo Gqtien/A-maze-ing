@@ -1,7 +1,7 @@
 import sys
 from typing import Any, Dict
 from core import Maze, parse_config
-from display import render_ascii, run_mlx_3d, run_mlx_2d
+from display import run_mlx_3d
 
 
 def require(config: Dict[str, Any], key: str) -> Any:
@@ -32,7 +32,7 @@ def main() -> int:
         output_file_name=config.get("OUTPUT_FILE", None),
     )
 
-    render_ascii(maze)
+    print(maze)
 
     settings = {
         "ENTRY": require(config, "ENTRY"),
@@ -42,7 +42,6 @@ def main() -> int:
         "WIN_TITLE": config.get("WIN_TITLE", "A-Maze-Ing"),
         "FOV": config.get("FOV", 60)
     }
-    # run_mlx_2d(maze, settings)
     run_mlx_3d(maze, settings)
 
     print("seed", maze.seed)
