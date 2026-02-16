@@ -73,7 +73,7 @@ class Maze:
         entry: tuple[int, int],
         exit: tuple[int, int],
         perfect: bool = False,
-        seed: int | None = None,
+        seed: int = random.randint(0, 1_000_000),
         output_file_name: str | None = None,
     ) -> None:
         """Maze constructor."""
@@ -82,15 +82,20 @@ class Maze:
         self.entry: tuple[int, int] = entry
         self.exit: tuple[int, int] = exit
         self.perfect: bool = perfect
-        self.seed: int = seed if seed else random.randint(0, 1_000_000)
+        self.seed: int = seed
         self.output_file_name: str | None = output_file_name
         self._maze: list[list[Cell]] = []
+        # TODO: init with a 42 drawn in the center
         # init maze full of walls (0xF)
         for y in range(self.height):
             self._maze.append([])
             for x in range(self.width):
                 self._maze[y].append(Cell(x, y, 0xF))
         self._generate()
+        # TODO: save to file if output_file_name is not None
+        if self.output_file_name is None:
+            return None
+        # self.save_to_file()
 
     def __str__(self) -> str:
         """Ascii minimap."""
@@ -107,7 +112,7 @@ class Maze:
         ret: str = ""
         for y in range(self.height):
             for x in range(self.width):
-                ret += str(self._maze[y][x])
+                ret += repr(self._maze[y][x])
             ret += "\n"
         return ret
 
@@ -117,10 +122,10 @@ class Maze:
         self._backtracking(rng)
 
     def _backtracking(self, rng: random.Random) -> None:
-        """Iterative backtracking."""
+        """Create paths using iterative backtracking."""
         stack: list[Cell] = []
         visited: set[Cell] = set()
-        start = self.get_cell(self.entry[0], self.entry[1])
+        start = self.get_cell(*self.entry)
         stack.append(start)
         visited.add(start)
 

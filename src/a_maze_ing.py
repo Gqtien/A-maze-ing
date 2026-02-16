@@ -1,10 +1,11 @@
 import sys
-from typing import Any, Dict
+from typing import Any
 from core import Maze, parse_config
 from display import run_mlx_3d
 
 
-def require(config: Dict[str, Any], key: str) -> Any:
+def require(config: dict[str, Any], key: str) -> Any:
+    # NOTE: same as dict[key], that would raise an error ?
     if key not in config:
         print(f"Missing config param : {key!r}")
         exit(1)
@@ -17,7 +18,7 @@ def main() -> int:
         exit(1)
 
     try:
-        config: Dict[str, Any] = parse_config(sys.argv[1])
+        config: dict[str, Any] = parse_config(sys.argv[1])
     except (FileNotFoundError, ValueError, IsADirectoryError) as e:
         print(e)
         exit(1)
@@ -33,6 +34,7 @@ def main() -> int:
     )
 
     print(maze)
+    print(repr(maze))
 
     settings = {
         "ENTRY": require(config, "ENTRY"),
