@@ -129,6 +129,15 @@ class Camera:
             self.pos.x -= self.direction.y * self.strafe_speed * dt
             self.pos.y += self.direction.x * self.strafe_speed * dt
 
+    def get_rect(self, size: int) -> Rect:
+        """Get a rect from the camera pos."""
+        return Rect(
+            int(self.pos.x * size) - size // 4,
+            int(self.pos.y * size) - size // 4,
+            size // 2,
+            size // 2
+        )
+
 
 def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
     """First cardinal (E/W/N/S) from pos that points to a non-wall cell."""
@@ -178,12 +187,7 @@ class Renderer:
         )
 
         # colors in BGRA format (litte endian)
-        self.red: bytes = b'\x00\x00\xFF\xFF'
-        self.green: bytes = b'\x00\xFF\x00\xFF'
-        self.blue: bytes = b'\xFF\x00\x00\xFF'
-        self.white: bytes = b'\xFF\xFF\xFF\xFF'
-        self.black: bytes = b'\x00\x00\x00\xFF'
-        floor_color: bytes = b'\x67\x67\x67\xFF'
+        floor_color: bytes = b'\x37\x37\x37\xFF'
         sky_color: bytes = b'\xEB\xCE\x87\xFF'
 
         # precomputed clearing buffer
@@ -192,10 +196,20 @@ class Renderer:
         repeats = half_buffer_size // len(floor_color)
         self.clear_bytes: bytes = sky_color * repeats + floor_color * repeats
 
+        # delta time
         self.last_frame_time: int = time.perf_counter_ns()
 
+        # get cell size
+        nrows: int = len(self.grid)
+        ncols: int = len(self.grid[0])
+        self.cell_size: int = min(
+            self.width // ncols,
+            self.height // nrows,
+        )
+
         # generate minimap
-        self.minimap: int = self._get_minimap_image()
+        self.minimap_image, self.minimap_buffer = self._get_minimap()
+        self.minimap_clear_buffer: bytes = bytes(self.minimap_buffer)
 
         # Spawn camera
         ex, ey = self.maze.entry_pos
@@ -223,44 +237,39 @@ class Renderer:
     def _raycasting(self) -> None:
         """Cast on ray per column and draw a line for each ray."""
         for x in range(self.width):
-            perp_wall_dist, is_vertical = self._cast_ray(x)
+            perp_wall_dist, is_horiz = self._cast_ray(x)
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
             self.draw_vertical_line(
                 y0=line_y,
                 y1=line_y + line_height,
                 x=x,
-                argb=self.blue if is_vertical else self.red
+                argb=b'\xA0\xA0\xA0\xFF' if is_horiz else b'\x80\x80\x80\xFF'
             )
 
-    def _get_minimap_image(self) -> int:
+    def _get_minimap(self) -> tuple[Any, Any]:
         """Generate an minimap of the maze in an mlx image."""
         minimap_image: int = self.mlx.mlx_new_image(
             self.mlx_ptr, self.width, self.height
         )
-        buffer: memoryview
-        buffer, *_ = self.mlx.mlx_get_data_addr(minimap_image)
-
-        nrows: int = len(self.grid)
-        ncols: int = len(self.grid[0])
-        cell_size: int = min(
-            self.width // ncols,
-            self.height // nrows,
-        )
+        minimap_buffer: memoryview
+        minimap_buffer, *_ = self.mlx.mlx_get_data_addr(minimap_image)
 
         # draw rects for each cell
         for y, row in enumerate(self.grid):
             for x, cell in enumerate(row):
-                color: bytes | None = self._get_cell_color(x, y)
-                if color is None:
-                    continue
                 cell_rect: Rect = Rect(
-                    x * cell_size, y * cell_size, cell_size, cell_size
+                    x * self.cell_size,
+                    y * self.cell_size,
+                    self.cell_size,
+                    self.cell_size
                 )
-                self.draw_rect(cell_rect, color, buffer)
-        return minimap_image
+                self.draw_rect(
+                    cell_rect, self._get_cell_color(x, y), minimap_buffer
+                )
+        return minimap_image, minimap_buffer
 
-    def _get_cell_color(self, x: int, y: int) -> bytes | None:
+    def _get_cell_color(self, x: int, y: int) -> bytes:
         """Get cell color."""
         # NOTE: computed for every cell, could be optimized
         grid_entry_pos: tuple[int, int] = (
@@ -271,12 +280,12 @@ class Renderer:
         )
 
         if self.grid[y][x]:
-            return self.white
+            return b'\xFF\xFF\xFF\xFF'
         elif (x, y) == grid_entry_pos:
-            return self.green
+            return b'\x00\xFF\x00\x7F'
         elif (x, y) == grid_exit_pos:
-            return self.red
-        return None
+            return b'\x00\x00\xFF\x7F'
+        return b'\x00\x00\x00\xFF'
 
     def _cast_ray(self, x: int) -> tuple[float, bool]:
         """Get the distance from a wall in a dir."""
@@ -334,7 +343,14 @@ class Renderer:
         perp_wall_dist: float = dist_x - dx if is_vertical else dist_y - dy
         return perp_wall_dist, is_vertical
 
-    def render(self) -> None:
+    def _render_player(self) -> None:
+        self.draw_rect(
+            self.camera.get_rect(self.cell_size),
+            b'\xAD\xD8\xEE\xFF',
+            self.minimap_buffer
+        )
+
+    def _render(self) -> None:
         """Render the maze.
 
         Draw sky and floor,
@@ -343,15 +359,21 @@ class Renderer:
         swap raycasting buffers,
         """
         # TODO: The visual should clearly show solution path.
+
+        # clear
         self.raycasting_buffer_b[:] = self.clear_bytes
+        self.minimap_buffer[:] = self.minimap_clear_buffer
+
+        # render walls and player pos
         self._raycasting()
+        self._render_player()
 
         # blit images to window
         self.mlx.mlx_put_image_to_window(
             self.mlx_ptr, self.win_ptr, self.raycasting_image_a, 0, 0
         )
         self.mlx.mlx_put_image_to_window(
-            self.mlx_ptr, self.win_ptr, self.minimap, self.width, 0
+            self.mlx_ptr, self.win_ptr, self.minimap_image, self.width, 0
         )
 
         # swap draw buffers
@@ -372,7 +394,7 @@ class Renderer:
         self.last_frame_time = now
 
         self.camera.move(dt)
-        self.render()
+        self._render()
         if keyboard.Key.esc in keys_pressed:
             self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
             self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image_a)
