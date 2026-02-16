@@ -2,6 +2,7 @@ import math
 import time
 import threading
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 from libs.mlx.mlx import Mlx
 from core.mazegen import Maze
@@ -27,6 +28,20 @@ def on_release(key: keyboard.Key) -> None:
         keys_pressed.remove(key)
     except KeyError:
         pass
+
+
+class Color(Enum):
+    """Colors in hex BGRA format."""
+
+    RED = b'\x00\x00\xFF\xFF'
+    GREEN = b'\x00\xFF\x00\xFF'
+    BLUE = b'\xFF\x00\x00\xFF'
+    WHITE = b'\x00\x00\x00\xFF'
+    BLACK = b'\xFF\xFF\xFF\xFF'
+    FLOOR = b'\x37\x37\x37\xFF'
+    SKY = b'\xEB\xCE\x87\xFF'
+    WALL = b'\xA0\xA0\xA0\xFF'
+    PLAYER = b'\xFF\x00\xFF\xFF'
 
 
 class Vec2:
@@ -192,15 +207,13 @@ class Renderer:
             self.mlx.mlx_get_data_addr(self.raycasting_image_b)
         )
 
-        # colors in BGRA format (litte endian)
-        floor_color: bytes = b'\x37\x37\x37\xFF'
-        sky_color: bytes = b'\xEB\xCE\x87\xFF'
-
         # precomputed clearing buffer
         self.grid: list[list[bool]] = self.maze.to_grid()
         half_buffer_size: int = self.raycasting_buffer_b.nbytes // 2
-        repeats = half_buffer_size // len(floor_color)
-        self.clear_bytes: bytes = sky_color * repeats + floor_color * repeats
+        repeats = half_buffer_size // len(Color.FLOOR.value)
+        self.clear_bytes: bytes = (
+            Color.SKY.value * repeats + Color.FLOOR.value * repeats
+        )
 
         # delta time
         self.last_frame_time: int = time.perf_counter_ns()
@@ -274,12 +287,12 @@ class Renderer:
     def _get_cell_color(self, x: int, y: int) -> bytes:
         """Get cell color."""
         if self.grid[y][x]:
-            return b'\xFF\xFF\xFF\xFF'
+            return Color.BLACK.value
         elif (x, y) == self.grid_entry_pos:
-            return b'\x00\xFF\x00\x7F'
+            return Color.GREEN.value
         elif (x, y) == self.grid_exit_pos:
-            return b'\x00\x00\xFF\x7F'
-        return b'\x00\x00\x00\xFF'
+            return Color.RED.value
+        return Color.WHITE.value
 
     def _cast_ray(self, x: int) -> tuple[float, bytes]:
         """Get the distance from a wall in a dir."""
@@ -316,6 +329,7 @@ class Renderer:
             step_y = -1
             dist_y = (self.camera.pos.y - map_y) * dy
 
+        # DDA algo loop
         hit: bool = False
         while not hit:
             if dist_x < dist_y:
@@ -334,34 +348,34 @@ class Renderer:
                 break
             hit = self.grid[map_y][map_x]
 
+        # get wall color
         perp_wall_dist: float = dist_x - dx if is_vertical else dist_y - dy
-        color: bytes = self._darken_color(b'\xA0\xA0\xA0\xFF', not is_vertical)
-
+        color: bytes = self._darken_color_to_bytes(Color.WALL, not is_vertical)
         if is_vertical:
             map_x -= step_x
         else:
             map_y -= step_y
         if (map_x, map_y) == self.grid_entry_pos:
-            color = self._darken_color(b'\x00\xFF\x00\xFF', not is_vertical)
+            color = self._darken_color_to_bytes(Color.GREEN, not is_vertical)
         if (map_x, map_y) == self.grid_exit_pos:
-            color = self._darken_color(b'\x00\x00\xFF\xFF', not is_vertical)
+            color = self._darken_color_to_bytes(Color.RED, not is_vertical)
 
         return perp_wall_dist, color
 
-    def _darken_color(
-            self, color: bytes, do_darken: bool = True, amount: int = 0x20
+    def _darken_color_to_bytes(
+            self, color: Color, do_darken: bool = True, amount: int = 0x20
     ) -> bytes:
         """Subtract ammount (default 0x20) from color, excluding alpha."""
         if not do_darken:
-            return color
+            return color.value
         return bytes(
-            map(lambda byte: max(0x0, byte - amount), color[:3])
-        ) + color[3:]
+            map(lambda byte: max(0x0, byte - amount), color.value[:3])
+        ) + color.value[3:]
 
     def _render_player(self) -> None:
         self.draw_rect(
             self.camera.get_rect(self.cell_size),
-            b'\xFF\x90\xD0\xFF',
+            Color.PLAYER.value,
             self.minimap_buffer
         )
 
