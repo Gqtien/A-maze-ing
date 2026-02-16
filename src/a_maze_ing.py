@@ -41,4 +41,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # NOTE: maybe put main call in a try: catch Exception to avoid all crashes
     main()

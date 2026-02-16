@@ -200,11 +200,10 @@ class Renderer:
         self.last_frame_time: int = time.perf_counter_ns()
 
         # get cell size
-        nrows: int = len(self.grid)
-        ncols: int = len(self.grid[0])
+        # TODO: make sure grid is not empty, also for other places in the code
         self.cell_size: int = min(
-            self.width // ncols,
-            self.height // nrows,
+            self.width // len(self.grid),
+            self.height // len(self.grid[0]),
         )
 
         # generate minimap
@@ -346,7 +345,7 @@ class Renderer:
     def _render_player(self) -> None:
         self.draw_rect(
             self.camera.get_rect(self.cell_size),
-            b'\xAD\xD8\xEE\xFF',
+            b'\xFF\x90\xD0\xFF',
             self.minimap_buffer
         )
 
@@ -395,15 +394,22 @@ class Renderer:
 
         self.camera.move(dt)
         self._render()
+
+        # TODO: User interactions must be available,
+        # at least for the following tasks:
+        # • Re-generate a new maze and display it.  NOTE: can be done from maze
+        # • Show/Hide a valid shortest path from the entrance to the exit.
+        #   - re-generate minimap maybe ?
+        # • Change maze wall colours.
+        # • Optional: set specific colours to display the “42” pattern.
+
+        # user interactions
+        # ESCAPE - quit
         if keyboard.Key.esc in keys_pressed:
             self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
             self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image_a)
             self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image_b)
             self.mlx.mlx_loop_exit(self.mlx_ptr)
-
-    def clear(self) -> None:
-        """Clear the memory buffer."""
-        self.raycasting_buffer_b[:] = b"\x00" * self.raycasting_buffer_b.nbytes
 
     def draw_vertical_line(
             self, y0: int, y1: int, x: int, argb: bytes

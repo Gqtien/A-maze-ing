@@ -92,8 +92,7 @@ class Maze:
 
         # TODO: save to file if output_file_name is not None
         if output_file_name is not None:
-            # self.save_to_file()
-            pass
+            self.save_to_file(output_file_name)
 
     def __str__(self) -> str:
         """Ascii minimap."""
@@ -112,6 +111,12 @@ class Maze:
             for x in range(self.width):
                 ret += repr(self._maze[y][x])
             ret += "\n"
+        # TODO: After an empty line,
+        # the following 3 elements are inserted in the output file on 3 lines:
+        # the entry coordinates,
+        # the exit coordinates,
+        # and the shortest valid path from entry to exit,
+        # using the four letters N , E , S , W .
         return ret
 
     def _generate(self) -> None:
@@ -223,3 +228,11 @@ class Maze:
                     or self.get_cell(cell.x, cell.y + 1).ne()
                 )
         return grid
+
+    def save_to_file(self, filename: str) -> None:
+        """Save the hex representation of the maze to file."""
+        try:
+            with open(filename, 'w') as file:
+                file.write(repr(self))
+        except Exception as e:
+            print(f"Error while trying to save maze to {filename}: {e}")
