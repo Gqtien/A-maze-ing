@@ -30,7 +30,7 @@ class Extremum(Enum):
     HEIGHT = 1000
     WIN_W = env_int("SCREEN_WIDTH", "1920")
     WIN_H = env_int("SCREEN_HEIGHT", "1080")
-    FOV = 180
+    FOV = 120
 
 
 def cast_value(value: str, type: type) -> Any:

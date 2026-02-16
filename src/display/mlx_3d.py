@@ -140,6 +140,7 @@ class Camera:
         self.move_speed: float = 2.5
         self.strafe_speed: float = 1.4
         self.rotate_speed: float = 2.0
+        self.fov_change_speed: float = 30.0
 
         # Start the keyboard listener in a separate thread
         listener = keyboard.Listener(on_press=on_press, on_release=on_release)
@@ -181,6 +182,15 @@ class Camera:
             self.direction.rotate(self.rotate_speed * dt)
         elif keyboard.Key.left in keys_pressed:
             self.direction.rotate(-self.rotate_speed * dt)
+
+        if keyboard.Key.up in keys_pressed:
+            new_fov = self.fov + self.fov_change_speed * dt
+            self.fov = min(120, int(new_fov))
+            self.fov_scale = math.tan(math.radians(self.fov) / 2)
+        elif keyboard.Key.down in keys_pressed:
+            new_fov = self.fov - self.fov_change_speed * dt
+            self.fov = max(30, int(new_fov))
+            self.fov_scale = math.tan(math.radians(self.fov) / 2)
 
         if self.mode[0] in keys_pressed:
             new_x = self.pos.x + self.direction.x * self.move_speed * dt
@@ -311,7 +321,7 @@ class Renderer:
         self.mlx = Mlx()
         self.mlx_ptr = self.mlx.mlx_init()
         self.win_ptr = self.mlx.mlx_new_window(
-            self.mlx_ptr, self.width * 2, self.height, self.title
+            self.mlx_ptr, self.width + self.height, self.height, self.title
         )
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
 
