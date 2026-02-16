@@ -72,8 +72,8 @@ class Maze:
         height: int,
         entry: tuple[int, int],
         exit: tuple[int, int],
-        perfect: bool = False,
-        seed: int = random.randint(0, 1_000_000),
+        perfect: bool = True,
+        seed: int | None = None,
         output_file_name: str | None = None,
     ) -> None:
         """Maze constructor."""
@@ -82,7 +82,7 @@ class Maze:
         self.entry: tuple[int, int] = entry
         self.exit: tuple[int, int] = exit
         self.perfect: bool = perfect
-        self.seed: int = seed
+        self.seed: int = seed if seed else random.randint(0, 1_000_000)
         self.output_file_name: str | None = output_file_name
         self._maze: list[list[Cell]] = []
         # TODO: init with a 42 drawn in the center

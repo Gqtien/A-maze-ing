@@ -1,7 +1,7 @@
 import sys
 from typing import Any
 from core import Maze, parse_config
-from display import run_mlx_3d
+from display import Renderer
 
 
 def require(config: dict[str, Any], key: str) -> Any:
@@ -12,7 +12,8 @@ def require(config: dict[str, Any], key: str) -> Any:
     return config[key]
 
 
-def main() -> int:
+def main() -> None:
+    """Parse config, create maze and renderer, run the renderer."""
     if len(sys.argv) != 2:
         print("Usage: make run <config_file>")
         exit(1)
@@ -29,25 +30,22 @@ def main() -> int:
         entry=require(config, "ENTRY"),
         exit=require(config, "EXIT"),
         perfect=config.get("PERFECT", True),
-        seed=config.get("SEED", None),
-        output_file_name=config.get("OUTPUT_FILE", None),
+        seed=config.get("SEED"),
+        output_file_name=config.get("OUTPUT_FILE"),
     )
 
     print(maze)
     print(repr(maze))
-
-    settings = {
-        "ENTRY": require(config, "ENTRY"),
-        "EXIT": require(config, "EXIT"),
-        "WIN_W": config.get("WIN_W", 800),
-        "WIN_H": config.get("WIN_H", 600),
-        "WIN_TITLE": config.get("WIN_TITLE", "A-Maze-Ing"),
-        "FOV": config.get("FOV", 60)
-    }
-    run_mlx_3d(maze, settings)
-
     print("seed", maze.seed)
-    return 0
+
+    renderer = Renderer(
+        config.get("WIN_W", 800),
+        config.get("WIN_H", 600),
+        config.get("WIN_TITLE", "A-maze-ing !"),
+        config.get("FOV", 60),
+        maze,
+    )
+    renderer.run()
 
 
 if __name__ == "__main__":

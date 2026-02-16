@@ -147,9 +147,7 @@ class Renderer:
         width: int,
         height: int,
         title: str,
-        entry: tuple[int, int],
-        exit: tuple[int, int],
-        FOV: int,
+        fov: int,
         maze: Maze,
     ) -> None:
         """Create a renderer.
@@ -199,10 +197,14 @@ class Renderer:
         self.minimap: int = self._get_minimap_image()
 
         # Spawn camera
-        ex, ey = entry
+        ex, ey = self.maze.entry
         pos: Vec2 = Vec2(ex * 3 + 1.5, ey * 3 + 1.5)
         direction: Vec2 = face_open_corridor(self.grid, pos)
-        self.camera: Camera = Camera(pos=pos, direction=direction, fov=FOV)
+        self.camera: Camera = Camera(
+            pos=pos,
+            direction=direction,
+            fov=fov
+        )
 
     def _init_mlx(self) -> None:
         """Init and setup mlx.
@@ -394,16 +396,3 @@ class Renderer:
         buffer[offset:offset + len(argb)] = argb
 
 
-def run_mlx_3d(maze: Maze, settings: dict[str, Any]) -> None:
-    """Create renderer from maze and settings, then run the 3D view."""
-    print(settings)
-    renderer = Renderer(
-        settings["WIN_W"],
-        settings["WIN_H"],
-        settings["WIN_TITLE"],
-        settings["ENTRY"],
-        settings["EXIT"],
-        settings["FOV"],
-        maze
-    )
-    renderer.run()
