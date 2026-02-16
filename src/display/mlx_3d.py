@@ -125,7 +125,7 @@ class Camera:
         fov: int,
         grid: list[list[bool]],
         mode: str = "wasd"
-        ) -> None:
+    ) -> None:
         """Pos and direction in grid coords, FOV in degrees."""
         self.pos: Vec2 = pos
         self.direction: Vec2 = direction
@@ -151,10 +151,15 @@ class Camera:
         """Check if the new position is not in a wall."""
         map_x: int = int(new_x)
         map_y: int = int(new_y)
-        
-        if map_x < 0 or map_y < 0 or map_x >= self.grid_width or map_y >= self.grid_height:
+
+        if (
+            map_x < 0
+            or map_y < 0
+            or map_x >= self.grid_width
+            or map_y >= self.grid_height
+        ):
             return False
-        
+
         return not self.grid[map_y][map_x]
 
     def _try_move_with_slide(self, new_x: float, new_y: float) -> None:
@@ -266,7 +271,6 @@ class Renderer:
         self.clear_bytes: bytes = (
             Color.SKY.value * repeats + Color.FLOOR.value * repeats
         )
-
 
         # precomputed len
         self.grid_width: int = len(self.grid[0])
@@ -440,32 +444,38 @@ class Renderer:
         sprite = Sprites.PLAYER.value
         sprite_width = len(sprite[0]) if sprite else 0
         sprite_height = len(sprite)
-        
+
         player_pixel_x = int(self.camera.pos.x * self.cell_size)
         player_pixel_y = int(self.camera.pos.y * self.cell_size)
-        
-        direction_angle = math.atan2(self.camera.direction.y, self.camera.direction.x)
+
+        direction_angle = math.atan2(
+            self.camera.direction.y,
+            self.camera.direction.x
+        )
         angle = direction_angle + math.pi / 2
         cos_a = math.cos(angle)
         sin_a = math.sin(angle)
-        
+
         center_x = sprite_width / 2.0
         center_y = sprite_height / 2.0
-        
+
         for sprite_y, row in enumerate(sprite):
             for sprite_x, char in enumerate(row):
                 if char == 'P':
                     dx = sprite_x - center_x
                     dy = sprite_y - center_y
-                    
+
                     rotated_x = dx * cos_a - dy * sin_a
                     rotated_y = dx * sin_a + dy * cos_a
-                    
+
                     pixel_x = int(player_pixel_x + rotated_x)
                     pixel_y = int(player_pixel_y + rotated_y)
-                    
+
                     self.put_pixel(
-                        pixel_x, pixel_y, Color.PLAYER.value, self.minimap_buffer
+                        pixel_x,
+                        pixel_y,
+                        Color.PLAYER.value,
+                        self.minimap_buffer
                     )
 
     def _render(self) -> None:
