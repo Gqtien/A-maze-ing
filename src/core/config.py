@@ -15,6 +15,7 @@ class ConfigKey(Enum):
     WIN_H = int
     WIN_TITLE = str
     FOV = int
+    MODE = str
 
 
 def env_int(name: str, default: str) -> int:
@@ -84,6 +85,15 @@ def validate_bounds(config: Dict[str, Any]) -> None:
             )
 
 
+def validate_mode(config: Dict[str, Any]) -> None:
+    if "MODE" not in config:
+        return
+
+    mode = config.get("MODE")
+    if len(mode) != 4:
+        raise ValueError(f"Invalid mode: must be 4 characters, got {mode!r}")
+
+
 def parse_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Config file not found at {path}")
@@ -147,6 +157,7 @@ def parse_config(path: str) -> Dict[str, Any]:
 
                 config[key] = casted_value
                 validate_bounds(config)
+                validate_mode(config)
     except UnicodeDecodeError as e:
         raise ValueError(
             f"Config file is not valid UTF-8: {path}"

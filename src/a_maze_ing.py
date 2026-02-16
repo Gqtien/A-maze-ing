@@ -35,6 +35,7 @@ def main() -> None:
         config.get("WIN_H", 600),
         config.get("WIN_TITLE", "A-maze-ing !"),
         config.get("FOV", 60),
+        config.get("MODE", "wasd"),
         maze,
     )
     renderer.run()
