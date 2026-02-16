@@ -42,7 +42,7 @@ def main() -> int:
         "WIN_TITLE": config.get("WIN_TITLE", "A-Maze-Ing"),
         "FOV": config.get("FOV", 60)
     }
-    run_mlx_2d(maze, settings)
+    # run_mlx_2d(maze, settings)
     run_mlx_3d(maze, settings)
 
     print("seed", maze.seed)

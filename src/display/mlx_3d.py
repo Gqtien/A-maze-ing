@@ -115,14 +115,14 @@ class Camera:
             self.direction.rotate(-self.rotate_speed * dt)
 
         # TODO: collisions
-        if 'z' in keys_pressed:
+        if 'w' in keys_pressed:
             self.pos.x += self.direction.x * self.move_speed * dt
             self.pos.y += self.direction.y * self.move_speed * dt
         elif 's' in keys_pressed:
             self.pos.x -= self.direction.x * self.move_speed * dt
             self.pos.y -= self.direction.y * self.move_speed * dt
 
-        if 'q' in keys_pressed:
+        if 'a' in keys_pressed:
             self.pos.x += self.direction.y * self.strafe_speed * dt
             self.pos.y -= self.direction.x * self.strafe_speed * dt
         elif 'd' in keys_pressed:
@@ -169,16 +169,20 @@ class Renderer:
         direction: Vec2 = face_open_corridor(self.grid, pos)
         self.camera: Camera = Camera(pos=pos, direction=direction, FOV=FOV)
 
-        # mlx
+        # init mlx
         self.mlx = Mlx()
         self.mlx_ptr = self.mlx.mlx_init()
         self.win_ptr = self.mlx.mlx_new_window(
-            self.mlx_ptr, width, height, title
+            self.mlx_ptr, self.width * 2, self.height, self.title
         )
 
         # a/b buffers for buffer swapping
-        self.img_ptr_a = self.mlx.mlx_new_image(self.mlx_ptr, width, height)
-        self.img_ptr_b = self.mlx.mlx_new_image(self.mlx_ptr, width, height)
+        self.img_ptr_a = self.mlx.mlx_new_image(
+            self.mlx_ptr, self.width, self.height
+        )
+        self.img_ptr_b = self.mlx.mlx_new_image(
+            self.mlx_ptr, self.width, self.height
+        )
         self.buffer_a, self.bits_per_pixel, self.line_size, _endian = (
             self.mlx.mlx_get_data_addr(self.img_ptr_a)
         )
@@ -192,13 +196,22 @@ class Renderer:
         self.half_buffer_size: int = self.buffer_b.nbytes // 2
         floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, litte endian
         sky_color: bytes = b'\xEB\xCE\x87\xFF'
-        self.blue: bytes = b'\xFF\x00\x00\xFF'
-        self.red: bytes = b'\x00\x00\xFF\xFF'
         repeats = self.half_buffer_size // len(floor_color)
         self.sky: bytes = sky_color * repeats
         self.floor: bytes = floor_color * repeats
 
+        self.blue: bytes = b'\xFF\x00\x00\xFF'
+        self.red: bytes = b'\x00\x00\xFF\xFF'
+        self.white: bytes = b'\xFF\xFF\xFF\xFF'
+        self.black: bytes = b'\x00\x00\x00\xFF'
+
         self.last_frame_time: int = time.perf_counter_ns()
+
+        # generate minimap
+        minimap_image: int = self.get_minimap_image()
+        self.mlx.mlx_put_image_to_window(
+            self.mlx_ptr, self.win_ptr, minimap_image, self.width, 0
+        )
 
     def render(self) -> None:
         """Render the maze.
@@ -231,6 +244,38 @@ class Renderer:
         # swap draw buffers
         self.img_ptr_a, self.img_ptr_b = self.img_ptr_b, self.img_ptr_a
         self.buffer_a, self.buffer_b = self.buffer_b, self.buffer_a
+
+    def get_minimap_image(self) -> int:
+        """Generate an minimap of the maze in an mlx image."""
+        minimap_image: int = self.mlx.mlx_new_image(
+            self.mlx_ptr, self.width, self.height
+        )
+        buffer: memoryview
+        buffer, *_ = self.mlx.mlx_get_data_addr(minimap_image)
+
+        nrows: int = len(self.grid)
+        ncols: int = len(self.grid[0])
+        cell_size: int = min(
+            self.width // ncols,
+            self.height // nrows,
+        )
+
+        # NOTE: debug
+        print(f"{cell_size=}")
+
+        # draw a rect
+        for y, row in enumerate(self.grid):
+            for x, cell in enumerate(row):
+                cell_x: int = x * cell_size
+                cell_y: int = y * cell_size
+                cell_rect: Rect = Rect(cell_x, cell_y, cell_size, cell_size)
+                if cell:
+                    self.draw_rect(
+                        cell_rect,
+                        self.white,
+                        buffer
+                    )
+        return minimap_image
 
     def cast_ray(self, x: int) -> tuple[float, bool]:
         """Get the distance from a wall in a dir."""
@@ -323,20 +368,23 @@ class Renderer:
             offset = y * self.line_size + x * 4
             self.buffer_b[offset:offset + 4] = argb
 
-    def draw_rect(self, rect: Rect, argb: int) -> None:
+    def draw_rect(self, rect: Rect, argb: bytes, buffer: memoryview) -> None:
         """Fill rectangle with a color."""
         for dx in range(rect.width):
             for dy in range(rect.height):
-                self.put_pixel(rect.x + dx, rect.y + dy, argb)
+                self.put_pixel(rect.x + dx, rect.y + dy, argb, buffer)
 
-    def put_pixel(self, x: int, y: int, argb: int) -> None:
+    def put_pixel(
+            self, x: int, y: int, argb: bytes, buffer: memoryview
+    ) -> None:
         """Set one pixel."""
+        offset: int = y * self.line_size + x * 4
+
         # Skip out-of-bounds pixels
-        if x < 0 or x >= self.width or y < 0 or y >= self.height:
+        if offset >= len(buffer):
             return
 
-        offset = y * self.line_size + x * 4
-        self.buffer_b[offset:offset + 4] = argb.to_bytes(4, 'little')
+        buffer[offset:offset + 4] = argb
 
 
 def run_mlx_3d(maze: Maze, settings: dict[str, Any]) -> None:
