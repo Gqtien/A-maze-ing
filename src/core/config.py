@@ -84,7 +84,6 @@ def validate_bounds(config: Dict[str, Any]) -> None:
             )
 
 
-# TODO: use dotenv for loading config maybe ?
 def parse_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Config file not found at {path}")

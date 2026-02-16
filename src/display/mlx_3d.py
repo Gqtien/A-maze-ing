@@ -178,14 +178,15 @@ class Renderer:
         )
 
         # colors in BGRA format (litte endian)
-        self.blue: bytes = b'\xFF\x00\x00\xFF'
         self.red: bytes = b'\x00\x00\xFF\xFF'
+        self.green: bytes = b'\x00\xFF\x00\xFF'
+        self.blue: bytes = b'\xFF\x00\x00\xFF'
         self.white: bytes = b'\xFF\xFF\xFF\xFF'
         self.black: bytes = b'\x00\x00\x00\xFF'
         floor_color: bytes = b'\x67\x67\x67\xFF'
         sky_color: bytes = b'\xEB\xCE\x87\xFF'
 
-        # precomputed values
+        # precomputed clearing buffer
         self.grid: list[list[bool]] = self.maze.to_grid()
         half_buffer_size: int = self.raycasting_buffer_b.nbytes // 2
         repeats = half_buffer_size // len(floor_color)
@@ -197,7 +198,7 @@ class Renderer:
         self.minimap: int = self._get_minimap_image()
 
         # Spawn camera
-        ex, ey = self.maze.entry
+        ex, ey = self.maze.entry_pos
         pos: Vec2 = Vec2(ex * 3 + 1.5, ey * 3 + 1.5)
         direction: Vec2 = face_open_corridor(self.grid, pos)
         self.camera: Camera = Camera(
@@ -325,6 +326,7 @@ class Renderer:
         put raycasting and minimap images to window,
         swap raycasting buffers,
         """
+        # TODO: The visual should clearly show solution path.
         self.raycasting_buffer_b[:] = self.clear_bytes
         self._raycasting()
 
@@ -394,5 +396,3 @@ class Renderer:
             return
 
         buffer[offset:offset + len(argb)] = argb
-
-

@@ -68,34 +68,32 @@ class Maze:
 
     def __init__(
         self,
-        width: int,
-        height: int,
-        entry: tuple[int, int],
-        exit: tuple[int, int],
-        perfect: bool = True,
+        width: int | None,
+        height: int | None,
+        entry_pos: tuple[int, int] | None,
+        exit_pos: tuple[int, int] | None,
+        perfect: bool | None = None,
         seed: int | None = None,
         output_file_name: str | None = None,
     ) -> None:
         """Maze constructor."""
-        self.width: int = width
-        self.height: int = height
-        self.entry: tuple[int, int] = entry
-        self.exit: tuple[int, int] = exit
-        self.perfect: bool = perfect
+        self.width: int = width if width else 800
+        self.height: int = height if height else 600
+        self.entry_pos: tuple[int, int] = entry_pos if entry_pos else (0, 0)
+        self.exit_pos: tuple[int, int] = (
+            exit_pos if exit_pos else (self.width - 1, self.height - 1)
+        )
+        # TODO: assert entry_pos != exit_pos
+        self.perfect: bool = perfect if perfect else True
         self.seed: int = seed if seed else random.randint(0, 1_000_000)
-        self.output_file_name: str | None = output_file_name
         self._maze: list[list[Cell]] = []
-        # TODO: init with a 42 drawn in the center
-        # init maze full of walls (0xF)
-        for y in range(self.height):
-            self._maze.append([])
-            for x in range(self.width):
-                self._maze[y].append(Cell(x, y, 0xF))
+
         self._generate()
+
         # TODO: save to file if output_file_name is not None
-        if self.output_file_name is None:
-            return None
-        # self.save_to_file()
+        if output_file_name is not None:
+            # self.save_to_file()
+            pass
 
     def __str__(self) -> str:
         """Ascii minimap."""
@@ -118,6 +116,13 @@ class Maze:
 
     def _generate(self) -> None:
         """Run generation and returns the maze."""
+        # TODO: init with a 42 drawn in the center
+        # NOTE: init maze full of walls (0xF)
+        for y in range(self.height):
+            self._maze.append([])
+            for x in range(self.width):
+                self._maze[y].append(Cell(x, y, 0xF))
+
         rng = random.Random(self.seed)
         self._backtracking(rng)
 
@@ -125,7 +130,7 @@ class Maze:
         """Create paths using iterative backtracking."""
         stack: list[Cell] = []
         visited: set[Cell] = set()
-        start = self.get_cell(*self.entry)
+        start = self.get_cell(*self.entry_pos)
         stack.append(start)
         visited.add(start)
 
