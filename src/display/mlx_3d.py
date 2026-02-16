@@ -169,6 +169,12 @@ class Renderer:
         self.height: int = height
         self.title: str = title
         self.maze: Maze = maze
+        self.grid_entry_pos: tuple[int, int] = (
+            self.maze.entry_pos[0] * 3 + 1, self.maze.entry_pos[1] * 3 + 1
+        )
+        self.grid_exit_pos: tuple[int, int] = (
+            self.maze.exit_pos[0] * 3 + 1, self.maze.exit_pos[1] * 3 + 1
+        )
 
         self._init_mlx()
 
@@ -236,14 +242,11 @@ class Renderer:
     def _raycasting(self) -> None:
         """Cast on ray per column and draw a line for each ray."""
         for x in range(self.width):
-            perp_wall_dist, is_horiz = self._cast_ray(x)
+            perp_wall_dist, color = self._cast_ray(x)
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
             self.draw_vertical_line(
-                y0=line_y,
-                y1=line_y + line_height,
-                x=x,
-                argb=b'\xA0\xA0\xA0\xFF' if is_horiz else b'\x80\x80\x80\xFF'
+                y0=line_y, y1=line_y + line_height, x=x, argb=color
             )
 
     def _get_minimap(self) -> tuple[Any, Any]:
@@ -270,23 +273,15 @@ class Renderer:
 
     def _get_cell_color(self, x: int, y: int) -> bytes:
         """Get cell color."""
-        # NOTE: computed for every cell, could be optimized
-        grid_entry_pos: tuple[int, int] = (
-            self.maze.entry_pos[0] * 3 + 1, self.maze.entry_pos[1] * 3 + 1
-        )
-        grid_exit_pos: tuple[int, int] = (
-            self.maze.exit_pos[0] * 3 + 1, self.maze.exit_pos[1] * 3 + 1
-        )
-
         if self.grid[y][x]:
             return b'\xFF\xFF\xFF\xFF'
-        elif (x, y) == grid_entry_pos:
+        elif (x, y) == self.grid_entry_pos:
             return b'\x00\xFF\x00\x7F'
-        elif (x, y) == grid_exit_pos:
+        elif (x, y) == self.grid_exit_pos:
             return b'\x00\x00\xFF\x7F'
         return b'\x00\x00\x00\xFF'
 
-    def _cast_ray(self, x: int) -> tuple[float, bool]:
+    def _cast_ray(self, x: int) -> tuple[float, bytes]:
         """Get the distance from a wall in a dir."""
         # FOV stuff and camera plane
         plane_x = -self.camera.direction.y * self.camera.fov_scale
@@ -340,7 +335,28 @@ class Renderer:
             hit = self.grid[map_y][map_x]
 
         perp_wall_dist: float = dist_x - dx if is_vertical else dist_y - dy
-        return perp_wall_dist, is_vertical
+        color: bytes = self._darken_color(b'\xA0\xA0\xA0\xFF', not is_vertical)
+
+        if is_vertical:
+            map_x -= step_x
+        else:
+            map_y -= step_y
+        if (map_x, map_y) == self.grid_entry_pos:
+            color = self._darken_color(b'\x00\xFF\x00\xFF', not is_vertical)
+        if (map_x, map_y) == self.grid_exit_pos:
+            color = self._darken_color(b'\x00\x00\xFF\xFF', not is_vertical)
+
+        return perp_wall_dist, color
+
+    def _darken_color(
+            self, color: bytes, do_darken: bool = True, amount: int = 0x20
+    ) -> bytes:
+        """Subtract ammount (default 0x20) from color, excluding alpha."""
+        if not do_darken:
+            return color
+        return bytes(
+            map(lambda byte: max(0x0, byte - amount), color[:3])
+        ) + color[3:]
 
     def _render_player(self) -> None:
         self.draw_rect(
