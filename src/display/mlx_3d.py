@@ -1,11 +1,11 @@
 import math
 import time
+import threading
 from dataclasses import dataclass
 from typing import Any
 from libs.mlx.mlx import Mlx
 from core.mazegen import Maze
 from pynput import keyboard
-import threading
 
 # Global variables to track key states
 keys_pressed: set[str | keyboard.Key] = set()
@@ -86,12 +86,12 @@ class Rect:
 class Camera:
     """First-person camera."""
 
-    def __init__(self, pos: Vec2, direction: Vec2, FOV: int) -> None:
+    def __init__(self, pos: Vec2, direction: Vec2, fov: int) -> None:
         """Pos and direction in grid coords, FOV in degrees."""
         self.pos: Vec2 = pos
         self.direction: Vec2 = direction
-        self.FOV: int = FOV
-        self.fov_scale = math.tan(math.radians(self.FOV) / 2)
+        self.fov: int = fov
+        self.fov_scale = math.tan(math.radians(self.fov) / 2)
 
         # Movement in units per second (independant from frame rate)
         self.move_speed: float = 2.5
@@ -163,70 +163,64 @@ class Renderer:
         self.title: str = title
         self.maze: Maze = maze
 
+        self._init_mlx()
+
+        # a/b buffers for buffer swapping
+        self.raycasting_image_a = self.mlx.mlx_new_image(
+            self.mlx_ptr, self.width, self.height
+        )
+        self.raycasting_image_b = self.mlx.mlx_new_image(
+            self.mlx_ptr, self.width, self.height
+        )
+        self.raycasting_buffer_a, _bits_per_pixel, self.line_size, _endian = (
+            self.mlx.mlx_get_data_addr(self.raycasting_image_a)
+        )
+        self.raycasting_buffer_b, _bits_per_pixel, self.line_size, _endian = (
+            self.mlx.mlx_get_data_addr(self.raycasting_image_b)
+        )
+
+        # colors in BGRA format (litte endian)
+        self.blue: bytes = b'\xFF\x00\x00\xFF'
+        self.red: bytes = b'\x00\x00\xFF\xFF'
+        self.white: bytes = b'\xFF\xFF\xFF\xFF'
+        self.black: bytes = b'\x00\x00\x00\xFF'
+        floor_color: bytes = b'\x67\x67\x67\xFF'
+        sky_color: bytes = b'\xEB\xCE\x87\xFF'
+
+        # precomputed values
         self.grid: list[list[bool]] = self.maze.to_grid()
+        half_buffer_size: int = self.raycasting_buffer_b.nbytes // 2
+        repeats = half_buffer_size // len(floor_color)
+        self.clear_bytes: bytes = sky_color * repeats + floor_color * repeats
+
+        self.last_frame_time: int = time.perf_counter_ns()
+
+        # generate minimap
+        self.minimap: int = self._get_minimap_image()
+
+        # Spawn camera
         ex, ey = entry
         pos: Vec2 = Vec2(ex * 3 + 1.5, ey * 3 + 1.5)
         direction: Vec2 = face_open_corridor(self.grid, pos)
-        self.camera: Camera = Camera(pos=pos, direction=direction, FOV=FOV)
+        self.camera: Camera = Camera(pos=pos, direction=direction, fov=FOV)
 
-        # init mlx
+    def _init_mlx(self) -> None:
+        """Init and setup mlx.
+
+        create mlx, mlx pointer and windows,
+        register loop function hook.
+        """
         self.mlx = Mlx()
         self.mlx_ptr = self.mlx.mlx_init()
         self.win_ptr = self.mlx.mlx_new_window(
             self.mlx_ptr, self.width * 2, self.height, self.title
         )
-
-        # a/b buffers for buffer swapping
-        self.img_ptr_a = self.mlx.mlx_new_image(
-            self.mlx_ptr, self.width, self.height
-        )
-        self.img_ptr_b = self.mlx.mlx_new_image(
-            self.mlx_ptr, self.width, self.height
-        )
-        self.buffer_a, self.bits_per_pixel, self.line_size, _endian = (
-            self.mlx.mlx_get_data_addr(self.img_ptr_a)
-        )
-        self.buffer_b, self.bits_per_pixel, self.line_size, _endian = (
-            self.mlx.mlx_get_data_addr(self.img_ptr_b)
-        )
-
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
 
-        # precomputed values
-        self.half_buffer_size: int = self.buffer_b.nbytes // 2
-        floor_color: bytes = b'\x67\x67\x67\xFF'  # BGRA, litte endian
-        sky_color: bytes = b'\xEB\xCE\x87\xFF'
-        repeats = self.half_buffer_size // len(floor_color)
-        self.sky: bytes = sky_color * repeats
-        self.floor: bytes = floor_color * repeats
-
-        self.blue: bytes = b'\xFF\x00\x00\xFF'
-        self.red: bytes = b'\x00\x00\xFF\xFF'
-        self.white: bytes = b'\xFF\xFF\xFF\xFF'
-        self.black: bytes = b'\x00\x00\x00\xFF'
-
-        self.last_frame_time: int = time.perf_counter_ns()
-
-        # generate minimap
-        minimap_image: int = self.get_minimap_image()
-        self.mlx.mlx_put_image_to_window(
-            self.mlx_ptr, self.win_ptr, minimap_image, self.width, 0
-        )
-
-    def render(self) -> None:
-        """Render the maze.
-
-        Draw sky and floor,
-        cast one ray per column,
-        then swap buffers and put image to window.
-        """
-        # sky and floor, precomputed !
-        self.buffer_b[:self.half_buffer_size] = self.sky
-        self.buffer_b[self.half_buffer_size:] = self.floor
-
-        # raytracing
-        for x in range(0, self.width):
-            perp_wall_dist, is_vertical = self.cast_ray(x)
+    def _raycasting(self) -> None:
+        """Cast on ray per column and draw a line for each ray."""
+        for x in range(self.width):
+            perp_wall_dist, is_vertical = self._cast_ray(x)
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
             self.draw_vertical_line(
@@ -236,16 +230,7 @@ class Renderer:
                 argb=self.blue if is_vertical else self.red
             )
 
-        # mlx stuff
-        self.mlx.mlx_put_image_to_window(
-            self.mlx_ptr, self.win_ptr, self.img_ptr_a, 0, 0
-        )
-
-        # swap draw buffers
-        self.img_ptr_a, self.img_ptr_b = self.img_ptr_b, self.img_ptr_a
-        self.buffer_a, self.buffer_b = self.buffer_b, self.buffer_a
-
-    def get_minimap_image(self) -> int:
+    def _get_minimap_image(self) -> int:
         """Generate an minimap of the maze in an mlx image."""
         minimap_image: int = self.mlx.mlx_new_image(
             self.mlx_ptr, self.width, self.height
@@ -259,9 +244,6 @@ class Renderer:
             self.width // ncols,
             self.height // nrows,
         )
-
-        # NOTE: debug
-        print(f"{cell_size=}")
 
         # draw a rect
         for y, row in enumerate(self.grid):
@@ -277,7 +259,7 @@ class Renderer:
                     )
         return minimap_image
 
-    def cast_ray(self, x: int) -> tuple[float, bool]:
+    def _cast_ray(self, x: int) -> tuple[float, bool]:
         """Get the distance from a wall in a dir."""
         # FOV stuff and camera plane
         plane_x = -self.camera.direction.y * self.camera.fov_scale
@@ -333,6 +315,31 @@ class Renderer:
         perp_wall_dist: float = dist_x - dx if is_vertical else dist_y - dy
         return perp_wall_dist, is_vertical
 
+    def render(self) -> None:
+        """Render the maze.
+
+        Draw sky and floor,
+        cast one ray per column,
+        put raycasting and minimap images to window,
+        swap raycasting buffers,
+        """
+        self.raycasting_buffer_b[:] = self.clear_bytes
+        self._raycasting()
+
+        # blit images to window
+        self.mlx.mlx_put_image_to_window(
+            self.mlx_ptr, self.win_ptr, self.raycasting_image_a, 0, 0
+        )
+        self.mlx.mlx_put_image_to_window(
+            self.mlx_ptr, self.win_ptr, self.minimap, self.width, 0
+        )
+
+        # swap draw buffers
+        self.raycasting_image_a, self.raycasting_image_b = \
+            self.raycasting_image_b, self.raycasting_image_a
+        self.raycasting_buffer_a, self.raycasting_buffer_b = \
+            self.raycasting_buffer_b, self.raycasting_buffer_a
+
     def run(self) -> None:
         """Enter MLX event loop until exit."""
         self.mlx.mlx_loop(self.mlx_ptr)
@@ -348,13 +355,13 @@ class Renderer:
         self.render()
         if keyboard.Key.esc in keys_pressed:
             self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
-            self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_a)
-            self.mlx.mlx_destroy_image(self.mlx_ptr, self.img_ptr_b)
+            self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image_a)
+            self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image_b)
             self.mlx.mlx_loop_exit(self.mlx_ptr)
 
     def clear(self) -> None:
         """Clear the memory buffer."""
-        self.buffer_b[:] = b"\x00" * self.buffer_b.nbytes
+        self.raycasting_buffer_b[:] = b"\x00" * self.raycasting_buffer_b.nbytes
 
     def draw_vertical_line(
             self, y0: int, y1: int, x: int, argb: bytes
@@ -365,11 +372,11 @@ class Renderer:
         y1 = min(y1, self.height - 1)
 
         for y in range(y0, y1):
-            offset = y * self.line_size + x * 4
-            self.buffer_b[offset:offset + 4] = argb
+            offset = y * self.line_size + x * len(argb)
+            self.raycasting_buffer_b[offset:offset + len(argb)] = argb
 
     def draw_rect(self, rect: Rect, argb: bytes, buffer: memoryview) -> None:
-        """Fill rectangle with a color."""
+        """Draw a filled rectangle with a color."""
         for dx in range(rect.width):
             for dy in range(rect.height):
                 self.put_pixel(rect.x + dx, rect.y + dy, argb, buffer)
@@ -377,14 +384,14 @@ class Renderer:
     def put_pixel(
             self, x: int, y: int, argb: bytes, buffer: memoryview
     ) -> None:
-        """Set one pixel."""
-        offset: int = y * self.line_size + x * 4
+        """Set one pixel in a buffer."""
+        offset: int = y * self.line_size + x * len(argb)
 
         # Skip out-of-bounds pixels
-        if offset >= len(buffer):
+        if offset >= len(buffer) - len(argb):
             return
 
-        buffer[offset:offset + 4] = argb
+        buffer[offset:offset + len(argb)] = argb
 
 
 def run_mlx_3d(maze: Maze, settings: dict[str, Any]) -> None:
