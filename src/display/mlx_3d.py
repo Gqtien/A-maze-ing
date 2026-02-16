@@ -248,19 +248,35 @@ class Renderer:
             self.height // nrows,
         )
 
-        # draw a rect
+        # draw rects for each cell
         for y, row in enumerate(self.grid):
             for x, cell in enumerate(row):
-                cell_x: int = x * cell_size
-                cell_y: int = y * cell_size
-                cell_rect: Rect = Rect(cell_x, cell_y, cell_size, cell_size)
-                if cell:
-                    self.draw_rect(
-                        cell_rect,
-                        self.white,
-                        buffer
-                    )
+                color: bytes | None = self._get_cell_color(x, y)
+                if color is None:
+                    continue
+                cell_rect: Rect = Rect(
+                    x * cell_size, y * cell_size, cell_size, cell_size
+                )
+                self.draw_rect(cell_rect, color, buffer)
         return minimap_image
+
+    def _get_cell_color(self, x: int, y: int) -> bytes | None:
+        """Get cell color."""
+        # NOTE: computed for every cell, could be optimized
+        grid_entry_pos: tuple[int, int] = (
+            self.maze.entry_pos[0] * 3 + 1, self.maze.entry_pos[1] * 3 + 1
+        )
+        grid_exit_pos: tuple[int, int] = (
+            self.maze.exit_pos[0] * 3 + 1, self.maze.exit_pos[1] * 3 + 1
+        )
+
+        if self.grid[y][x]:
+            return self.white
+        elif (x, y) == grid_entry_pos:
+            return self.green
+        elif (x, y) == grid_exit_pos:
+            return self.red
+        return None
 
     def _cast_ray(self, x: int) -> tuple[float, bool]:
         """Get the distance from a wall in a dir."""
