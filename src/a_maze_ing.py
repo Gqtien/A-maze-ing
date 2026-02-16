@@ -26,9 +26,9 @@ def main() -> None:
         output_file_name=config.get("OUTPUT_FILE"),
     )
 
-    print(maze)
-    print(repr(maze))
-    print("seed", maze.seed)
+    # print(maze)
+    # print(repr(maze))
+    # print("seed", maze.seed)
 
     renderer: Renderer = Renderer(
         config.get("WIN_W", 800),

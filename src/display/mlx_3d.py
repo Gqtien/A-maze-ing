@@ -1,6 +1,7 @@
 import math
 import time
 import threading
+from functools import lru_cache
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -215,6 +216,11 @@ class Renderer:
             Color.SKY.value * repeats + Color.FLOOR.value * repeats
         )
 
+
+        # precomputed len
+        self.grid_width: int = len(self.grid[0])
+        self.grid_height: int = len(self.grid)
+
         # delta time
         self.last_frame_time: int = time.perf_counter_ns()
 
@@ -342,9 +348,12 @@ class Renderer:
                 is_vertical = False
 
             # clamp map indexes
-            if map_x < 0 or map_y < 0:
-                break
-            if map_x >= len(self.grid[0]) - 1 or map_y >= len(self.grid) - 1:
+            if (
+                    map_x < 0
+                    or map_y < 0
+                    or map_x >= self.grid_width - 1
+                    or map_y >= self.grid_height - 1
+            ):
                 break
             hit = self.grid[map_y][map_x]
 
@@ -357,11 +366,12 @@ class Renderer:
             map_y -= step_y
         if (map_x, map_y) == self.grid_entry_pos:
             color = self._darken_color_to_bytes(Color.GREEN, not is_vertical)
-        if (map_x, map_y) == self.grid_exit_pos:
+        elif (map_x, map_y) == self.grid_exit_pos:
             color = self._darken_color_to_bytes(Color.RED, not is_vertical)
 
         return perp_wall_dist, color
 
+    @lru_cache()
     def _darken_color_to_bytes(
             self, color: Color, do_darken: bool = True, amount: int = 0x20
     ) -> bytes:
@@ -450,8 +460,8 @@ class Renderer:
         y1 = min(y1, self.height - 1)
 
         for y in range(y0, y1):
-            offset = y * self.line_size + x * len(argb)
-            self.raycasting_buffer_b[offset:offset + len(argb)] = argb
+            offset = y * self.line_size + x * 4
+            self.raycasting_buffer_b[offset:offset + 4] = argb
 
     def draw_rect(self, rect: Rect, argb: bytes, buffer: memoryview) -> None:
         """Draw a filled rectangle with a color."""
@@ -463,10 +473,10 @@ class Renderer:
             self, x: int, y: int, argb: bytes, buffer: memoryview
     ) -> None:
         """Set one pixel in a buffer."""
-        offset: int = y * self.line_size + x * len(argb)
+        offset: int = y * self.line_size + x * 4
 
         # Skip out-of-bounds pixels
-        if offset >= len(buffer) - len(argb):
+        if offset >= buffer.nbytes - 4:
             return
 
-        buffer[offset:offset + len(argb)] = argb
+        buffer[offset:offset + 4] = argb
