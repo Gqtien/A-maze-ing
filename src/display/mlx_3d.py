@@ -45,6 +45,22 @@ class Color(Enum):
     PLAYER = b'\xFF\x00\xFF\xFF'
 
 
+class Sprites(Enum):
+    PLAYER = [
+        ".....P.....",
+        "....PPP....",
+        "...PPPPP...",
+        "..PPPPPPP..",
+        ".PPPPPPPPP.",
+        "PPPPPPPPPPP",
+        "PPPPPPPPPPP",
+        "PPPPPPPPPPP",
+        "PPPPP.PPPPP",
+        "PPPP...PPPP",
+        "PP.......PP",
+    ]
+
+
 class Vec2:
     """2D vector."""
 
@@ -383,11 +399,37 @@ class Renderer:
         ) + color.value[3:]
 
     def _render_player(self) -> None:
-        self.draw_rect(
-            self.camera.get_rect(self.cell_size),
-            Color.PLAYER.value,
-            self.minimap_buffer
-        )
+        """Draw the player sprite on the minimap."""
+        sprite = Sprites.PLAYER.value
+        sprite_width = len(sprite[0]) if sprite else 0
+        sprite_height = len(sprite)
+        
+        player_pixel_x = int(self.camera.pos.x * self.cell_size)
+        player_pixel_y = int(self.camera.pos.y * self.cell_size)
+        
+        direction_angle = math.atan2(self.camera.direction.y, self.camera.direction.x)
+        angle = direction_angle + math.pi / 2
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        
+        center_x = sprite_width / 2.0
+        center_y = sprite_height / 2.0
+        
+        for sprite_y, row in enumerate(sprite):
+            for sprite_x, char in enumerate(row):
+                if char == 'P':
+                    dx = sprite_x - center_x
+                    dy = sprite_y - center_y
+                    
+                    rotated_x = dx * cos_a - dy * sin_a
+                    rotated_y = dx * sin_a + dy * cos_a
+                    
+                    pixel_x = int(player_pixel_x + rotated_x)
+                    pixel_y = int(player_pixel_y + rotated_y)
+                    
+                    self.put_pixel(
+                        pixel_x, pixel_y, Color.PLAYER.value, self.minimap_buffer
+                    )
 
     def _render(self) -> None:
         """Render the maze.
