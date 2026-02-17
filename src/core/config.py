@@ -88,6 +88,7 @@ class ConfigKey(Enum):
     FOV = int
     MODE = Mode
     PATTERN = Pattern
+    FPS = bool
 
 
 def env_int(name: str, default: str) -> int:

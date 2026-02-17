@@ -27,6 +27,7 @@ class Renderer:
         title: str,
         fov: int,
         mode: Mode,
+        fps: bool,
         maze: Maze,
     ) -> None:
         """Create a renderer.
@@ -38,6 +39,7 @@ class Renderer:
         self.width: int = width
         self.height: int = height
         self.title: str = title
+        self.fps: bool = fps
         self.maze: Maze = maze
         self.grid_entry_pos: tuple[int, int] = (
             self.maze.entry_pos[0] * 3 + 1, self.maze.entry_pos[1] * 3 + 1
@@ -85,9 +87,10 @@ class Renderer:
 
         # delta time and fps
         self.last_frame_time: int = time.perf_counter_ns()
-        self.fps: float = 0.0
-        self._fps_last_update_ns: int = time.perf_counter_ns()
-        self._fps_frame_count: int = 0
+        if self.fps:
+            self.fps_value: float = 0.0
+            self.fps_last_update_ns: int = time.perf_counter_ns()
+            self.fps_frame_count: int = 0
 
         # get cell size for minimap
         self.minimap_side: int = self.width // 4
@@ -244,14 +247,15 @@ class Renderer:
             self.mlx_ptr, self.win_ptr, self.raycasting_image, 0, 0
         )
 
-        self.mlx.mlx_string_put(
-            self.mlx_ptr,
-            self.win_ptr,
-            10,
-            10,
-            0xFFFFFFFF,
-            f"FPS: {self.fps:.0f}",
-        )
+        if self.fps:
+            self.mlx.mlx_string_put(
+                self.mlx_ptr,
+                self.win_ptr,
+                10,
+                10,
+                0xFFFFFFFF,
+                f"FPS: {self.fps_value:.0f}",
+            )
 
     def run(self) -> None:
         """Enter MLX event loop until exit or interrupt."""
@@ -265,12 +269,14 @@ class Renderer:
         dt = now - self.last_frame_time
         self.last_frame_time = now
 
-        self._fps_frame_count += 1
-        elapsed_ns = now - self._fps_last_update_ns
-        if elapsed_ns >= 1_000_000_000:
-            self.fps = self._fps_frame_count * 1e9 / elapsed_ns
-            self._fps_frame_count = 0
-            self._fps_last_update_ns = now
+        
+        if self.fps:
+            self.fps_frame_count += 1
+            elapsed_ns = now - self.fps_last_update_ns
+            if elapsed_ns >= 1_000_000_000:
+                self.fps_value = self.fps_frame_count * 1e9 / elapsed_ns
+                self.fps_frame_count = 0
+                self.fps_last_update_ns = now
 
         self.camera.move(dt)
         self._render()
