@@ -23,7 +23,7 @@ class Camera:
         direction: Vec2,
         fov: int,
         grid: list[list[bool]],
-        mode: Mode = Mode.WASD,
+        mode: Mode | None = None,
     ) -> None:
         """Pos and direction in grid coords, FOV in degrees."""
         self.pos: Vec2 = pos
@@ -33,8 +33,8 @@ class Camera:
         self.grid: list[list[bool]] = grid
         self.grid_width: int = len(grid[0]) if grid else 0
         self.grid_height: int = len(grid) if grid else 0
-        self.mode: Mode = mode
-        self.keys = mode.keys()
+        self.mode: Mode = mode if mode is not None else Mode("wasd")
+        self.keys = self.mode.keys()
 
         # Movement in units per second (independant from frame rate)
         self.move_speed: float = 2.5

@@ -3,46 +3,75 @@ from enum import Enum
 from typing import Any, Dict, NamedTuple
 
 
-class KeyBindings(NamedTuple):
-    """Keys for forward, right, back, left."""
+class Mode:
+    """Key layout: forward, left, back, right."""
 
-    forward: str
-    left: str
-    back: str
-    right: str
+    class KeyBindings(NamedTuple):
+        """Keys for forward, left, back, right."""
+        forward: str
+        left: str
+        back: str
+        right: str
 
+    def __init__(self, value: str) -> None:
+        """Parse value: exactly 4 letters (forward, left, back, right)."""
+        raw = value.strip()
+        if len(raw) != 4:
+            print(
+                f"MODE must be exactly 4 characters (forward,left,back,right),"
+                f" got {len(raw)} character{'' if len(raw) == 1 else 's'} "
+                f"in {value!r}"
+            )
+            exit(1)
+        if not all(c.isalpha() for c in raw):
+            print(
+                f"MODE must be 4 letters only (no digits, spaces or symbols), "
+                f"got {value!r}"
+            )
+            exit(1)
+        keys = [raw[0], raw[1], raw[2], raw[3]]
+        self.bindings = Mode.KeyBindings(
+            forward=keys[0],
+            left=keys[1],
+            back=keys[2],
+            right=keys[3],
+        )
 
-class Mode(Enum):
-    WASD = "wasd"
-    ZQSD = "zqsd"
-
-    def keys(self) -> KeyBindings:
+    def keys(self) -> "Mode.KeyBindings":
         """Return key bindings for this mode."""
-        bindings: dict[str, KeyBindings] = {
-            "wasd": KeyBindings(forward="w", left="a", back="s", right="d"),
-            "zqsd": KeyBindings(forward="z", left="q", back="s", right="d"),
-        }
-        return bindings[self.value]
+        return self.bindings
 
 
-class PatternDigits(NamedTuple):
-    """Names of the two Digits enum members for patterns."""
+class Pattern:
+    """Two-digit pattern. Built from any 2-digit string (e.g. 42, 67, 00)."""
+    class PatternDigits(NamedTuple):
+        """Names of the two Digits enum members for patterns."""
+        first: str
+        second: str
 
-    first: str
-    second: str
+    def __init__(self, value: str) -> None:
+        """Parse value: exactly 2 digits."""
+        raw = value.strip()
+        if len(raw) != 2:
+            print(f"PATTERN must be exactly 2 digits, got {value!r}")
+            exit(1)
+        numbers = [
+            "ZERO", "ONE", "TWO", "THREE", "FOUR",
+            "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
+        ]
+        try:
+            first = int(raw[0])
+            second = int(raw[1])
+            if first not in range(10) or second not in range(10):
+                raise ValueError
+        except ValueError:
+            print(f"PATTERN digits must be 0-9, got {value!r}")
+            exit(1)
+        self._digits = Pattern.PatternDigits(numbers[first], numbers[second])
 
-
-class Pattern(Enum):
-    FORTY_TWO = "42"
-    SIX_SEVEN = "67"
-
-    def digits(self) -> PatternDigits:
+    def digits(self) -> "Pattern.PatternDigits":
         """Return the two digit names for this pattern."""
-        digits: dict[str, PatternDigits] = {
-            "42": PatternDigits("FOUR", "TWO"),
-            "67": PatternDigits("SIX", "SEVEN"),
-        }
-        return digits[self.value]
+        return self._digits
 
 
 class ConfigKey(Enum):
@@ -101,7 +130,7 @@ def cast_value(value: str, type: type) -> Any:
         elif type is Pattern:
             return Pattern(value.strip())
         elif type is Mode:
-            return Mode(value.strip().lower())
+            return Mode(value.strip())
         else:
             raise TypeError(f"Unsupported type: {type}")
     except (ValueError, KeyError):
@@ -131,6 +160,12 @@ def validate_bounds(config: Dict[str, Any]) -> None:
                 f"{key} 'y' out of bounds: map height: {height!r}, got {y!r}"
             )
 
+    if config["ENTRY"] == config["EXIT"]:
+        raise ValueError(
+            "ENTRY and EXIT must be different "
+            f"(both set to {config['ENTRY']!r})"
+        )
+
 
 def parse_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
@@ -142,15 +177,7 @@ def parse_config(path: str) -> Dict[str, Any]:
     config: Dict[str, Any] = {}
 
     try:
-        f = open(path, "r", encoding="utf-8")
-    except PermissionError:
-        raise PermissionError(f"Cannot read config file "
-                              f"(permission denied): {path}")
-    except OSError as e:
-        raise OSError(f"Cannot open config file: {path}") from e
-
-    try:
-        with f as file:
+        with open(path, "r", encoding="utf-8") as file:
             for line in file:
                 line = line.strip()
 
@@ -170,9 +197,12 @@ def parse_config(path: str) -> Dict[str, Any]:
                 try:
                     casted_value = cast_value(value, expected_type)
                 except ValueError as e:
+                    type_name = getattr(
+                        expected_type, "__name__", repr(expected_type)
+                    )
                     raise ValueError(
                         f"Invalid value for {key!r}: "
-                        f"expected {expected_type.__name__}, got {value!r}"
+                        f"expected {type_name}, got {value!r}"
                     ) from e
 
                 if key in Extremum.__members__:
@@ -195,6 +225,12 @@ def parse_config(path: str) -> Dict[str, Any]:
 
                 config[key] = casted_value
                 validate_bounds(config)
+    except PermissionError:
+        raise PermissionError(
+            f"Cannot read config file (permission denied): {path}"
+        )
+    except OSError as e:
+        raise OSError(f"Cannot open config file: {path}") from e
     except UnicodeDecodeError as e:
         raise ValueError(
             f"Config file is not valid UTF-8: {path}"

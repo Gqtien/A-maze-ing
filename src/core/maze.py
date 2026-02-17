@@ -88,7 +88,7 @@ class Maze:
         self.perfect: bool = perfect if perfect else True
         self.seed: int = seed if seed else random.randint(0, 1_000_000)
         self._maze: list[list[Cell]] = []
-        self.pattern: Pattern = pattern if pattern else Pattern.FORTY_TWO
+        self.pattern: Pattern = pattern if pattern else Pattern("42")
 
         self._generate()
 

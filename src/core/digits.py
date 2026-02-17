@@ -13,8 +13,8 @@ class Digits(Enum):
     ]
 
     ONE = [
-        ".O.",
         "OO.",
+        ".O.",
         ".O.",
         ".O.",
         "OOO",

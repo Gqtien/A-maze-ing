@@ -12,7 +12,13 @@ def main() -> None:
 
     try:
         config: dict[str, Any] = parse_config(sys.argv[1])
-    except (FileNotFoundError, ValueError, IsADirectoryError) as e:
+    except (
+        FileNotFoundError,
+        ValueError,
+        IsADirectoryError,
+        PermissionError,
+        OSError,
+    ) as e:
         print(e)
         sys.exit(1)
 
@@ -24,7 +30,7 @@ def main() -> None:
         perfect=config.get("PERFECT"),
         seed=config.get("SEED"),
         output_file_name=config.get("OUTPUT_FILE"),
-        pattern=config.get("PATTERN", Pattern.FORTY_TWO),
+        pattern=config.get("PATTERN", Pattern("42")),
     )
 
     # print(maze)
@@ -36,7 +42,7 @@ def main() -> None:
         config.get("WIN_H", 600),
         config.get("WIN_TITLE", "A-maze-ing !"),
         config.get("FOV", 60),
-        config.get("MODE", Mode.WASD),
+        config.get("MODE", Mode("wasd")),
         maze,
     )
     renderer.run()

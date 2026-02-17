@@ -169,7 +169,7 @@ class Renderer:
         )
 
         for i in range(0, minimap_buffer.nbytes, 4):
-            minimap_buffer[i : i + 4] = Color.FLOOR.value
+            minimap_buffer[i:i + 4] = Color.FLOOR.value
 
         # draw rects for each cell
         for y, row in enumerate(self.grid):
@@ -230,7 +230,7 @@ class Renderer:
         # minimap blit on top-right of main buffer
         self._render_player()
         x0 = self.width - self.minimap_side
-        self.numpy_raycasting_buffer[0 : self.minimap_side, x0 : self.width, :] = (
+        self.numpy_raycasting_buffer[0:self.minimap_side, x0:self.width, :] = (
             self._minimap_np
         )
 
