@@ -44,6 +44,9 @@ class Renderer:
         self.grid_exit_pos: tuple[int, int] = (
             self.maze.exit_pos[0] * 3 + 1, self.maze.exit_pos[1] * 3 + 1
         )
+        self.cells_42: set[tuple[int, int]] = {
+            (cell.x, cell.y) for cell in self.maze.get_42_cells()
+        }
 
         # Initialize keyboard handler
         self._keyboard_handler = KeyboardHandler()
@@ -169,6 +172,9 @@ class Renderer:
 
     def _get_cell_color(self, x: int, y: int) -> bytes:
         """Get cell color."""
+        maze_x, maze_y = x // 3, y // 3
+        if (maze_x, maze_y) in self.cells_42:
+            return Color.FORTY_TWO.value
         if self.grid[y][x]:
             return Color.BLACK.value
         elif (x, y) == self.grid_entry_pos:

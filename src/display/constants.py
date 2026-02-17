@@ -13,6 +13,7 @@ class Color(Enum):
     SKY = b'\xEB\xCE\x87\xFF'
     WALL = b'\xA0\xA0\xA0\xFF'
     PLAYER = b'\xFF\x00\xFF\xFF'
+    FORTY_TWO = b'\xFF\x00\x00\xFF'
 
 
 class Sprites(Enum):
