@@ -9,3 +9,4 @@ WIN_H=480
 WIN_TITLE=Clairement Outstanding
 FOV=80
 MODE=zqsd
+PATTERN=42

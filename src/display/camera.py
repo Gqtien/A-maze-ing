@@ -2,6 +2,7 @@ import math
 from utils.geometry import Vec2, Rect
 from input.keyboard import keys_pressed
 from pynput import keyboard
+from core import Mode
 
 
 def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
@@ -22,7 +23,7 @@ class Camera:
         direction: Vec2,
         fov: int,
         grid: list[list[bool]],
-        mode: str = "wasd"
+        mode: Mode = Mode.WASD,
     ) -> None:
         """Pos and direction in grid coords, FOV in degrees."""
         self.pos: Vec2 = pos
@@ -32,7 +33,8 @@ class Camera:
         self.grid: list[list[bool]] = grid
         self.grid_width: int = len(grid[0]) if grid else 0
         self.grid_height: int = len(grid) if grid else 0
-        self.mode: str = mode.lower()
+        self.mode: Mode = mode
+        self.keys = mode.keys()
 
         # Movement in units per second (independant from frame rate)
         self.move_speed: float = 2.5
@@ -84,20 +86,20 @@ class Camera:
             self.fov = max(30, int(new_fov))
             self.fov_scale = math.tan(math.radians(self.fov) / 2)
 
-        if self.mode[0] in keys_pressed:
+        if self.keys.forward in keys_pressed:
             new_x = self.pos.x + self.direction.x * self.move_speed * dt
             new_y = self.pos.y + self.direction.y * self.move_speed * dt
             self._try_move_with_slide(new_x, new_y)
-        elif self.mode[2] in keys_pressed:
+        elif self.keys.back in keys_pressed:
             new_x = self.pos.x - self.direction.x * self.move_speed * dt
             new_y = self.pos.y - self.direction.y * self.move_speed * dt
             self._try_move_with_slide(new_x, new_y)
 
-        if self.mode[1] in keys_pressed:
+        if self.keys.right in keys_pressed:
             new_x = self.pos.x + self.direction.y * self.strafe_speed * dt
             new_y = self.pos.y - self.direction.x * self.strafe_speed * dt
             self._try_move_with_slide(new_x, new_y)
-        elif self.mode[3] in keys_pressed:
+        elif self.keys.left in keys_pressed:
             new_x = self.pos.x - self.direction.y * self.strafe_speed * dt
             new_y = self.pos.y + self.direction.x * self.strafe_speed * dt
             self._try_move_with_slide(new_x, new_y)

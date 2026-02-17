@@ -1,6 +1,7 @@
 import random
 from enum import Enum
 from core.digits import Digits
+from core.config import Pattern
 
 
 class Wall(Enum):
@@ -74,6 +75,7 @@ class Maze:
         perfect: bool | None = None,
         seed: int | None = None,
         output_file_name: str | None = None,
+        pattern: Pattern | None = None,
     ) -> None:
         """Maze constructor."""
         self.width: int = width if width else 800
@@ -86,6 +88,7 @@ class Maze:
         self.perfect: bool = perfect if perfect else True
         self.seed: int = seed if seed else random.randint(0, 1_000_000)
         self._maze: list[list[Cell]] = []
+        self.pattern: Pattern = pattern if pattern else Pattern.FORTY_TWO
 
         self._generate()
 
@@ -133,13 +136,14 @@ class Maze:
         rng = random.Random(self.seed)
         self._backtracking(rng)
 
-    def get_42_cells(self) -> set[Cell]:
+    def get_pattern_cells(self) -> set[Cell]:
         """Return cells to mark the 42 in the center."""
-        pattern_4: list[str] = Digits.SIX_SMALL.value
-        pattern_2: list[str] = Digits.SEVEN_SMALL.value
+        d = self.pattern.digits()
+        pattern_first: list[str] = Digits[d.first].value
+        pattern_second: list[str] = Digits[d.second].value
 
-        digit_height: int = len(pattern_4)
-        digit_width: int = len(pattern_4[0]) if pattern_4 else 0
+        digit_height: int = len(pattern_first)
+        digit_width: int = len(pattern_first[0]) if pattern_first else 0
         total_width: int = digit_width * 2 + 1
 
         # exit if maze is too small
@@ -147,12 +151,15 @@ class Maze:
             return set()
 
         top: int = (self.height - digit_height) // 2
-        left_4: int = (self.width - total_width) // 2
-        left_2: int = left_4 + digit_width + 1
+        left_first: int = (self.width - total_width) // 2
+        left_second: int = left_first + digit_width + 1
 
         cells: set[Cell] = set()
 
-        for pattern, left in ((pattern_4, left_4), (pattern_2, left_2)):
+        for pattern, left in (
+            (pattern_first, left_first),
+            (pattern_second, left_second),
+        ):
             for dy, row in enumerate(pattern):
                 for dx, ch in enumerate(row):
                     if ch != "O":
@@ -168,7 +175,7 @@ class Maze:
     def _backtracking(self, rng: random.Random) -> None:
         """Create paths using iterative backtracking."""
         stack: list[Cell] = []
-        visited: set[Cell] = self.get_42_cells()
+        visited: set[Cell] = self.get_pattern_cells()
         start: Cell = self.get_cell(*self.entry_pos)
         stack.append(start)
         visited.add(start)

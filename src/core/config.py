@@ -1,6 +1,48 @@
 import os
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Dict, NamedTuple
+
+
+class KeyBindings(NamedTuple):
+    """Keys for forward, right, back, left."""
+
+    forward: str
+    right: str
+    back: str
+    left: str
+
+
+class Mode(Enum):
+    WASD = "wasd"
+    ZQSD = "zqsd"
+
+    def keys(self) -> KeyBindings:
+        """Return key bindings for this mode."""
+        bindings: dict[str, KeyBindings] = {
+            "wasd": KeyBindings(forward="w", right="a", back="s", left="d"),
+            "zqsd": KeyBindings(forward="z", right="q", back="s", left="d"),
+        }
+        return bindings[self.value]
+
+
+class PatternDigits(NamedTuple):
+    """Names of the two Digits enum members for patterns."""
+
+    first: str
+    second: str
+
+
+class Pattern(Enum):
+    FORTY_TWO = "42"
+    SIX_SEVEN = "67"
+
+    def digits(self) -> PatternDigits:
+        """Return the two digit names for this pattern."""
+        digits: dict[str, PatternDigits] = {
+            "42": PatternDigits("FOUR", "TWO"),
+            "67": PatternDigits("SIX", "SEVEN"),
+        }
+        return digits[self.value]
 
 
 class ConfigKey(Enum):
@@ -15,7 +57,8 @@ class ConfigKey(Enum):
     WIN_H = int
     WIN_TITLE = str
     FOV = int
-    MODE = str
+    MODE = Mode
+    PATTERN = Pattern
 
 
 def env_int(name: str, default: str) -> int:
@@ -55,9 +98,13 @@ def cast_value(value: str, type: type) -> Any:
                     f"got {len(parts)}"
                 )
             return tuple(map(int, parts))
+        elif type is Pattern:
+            return Pattern(value.strip())
+        elif type is Mode:
+            return Mode(value.strip().lower())
         else:
             raise TypeError(f"Unsupported type: {type}")
-    except ValueError:
+    except (ValueError, KeyError):
         raise ValueError(f"Invalid value for type {type}: {value!r}")
 
 
@@ -83,15 +130,6 @@ def validate_bounds(config: Dict[str, Any]) -> None:
             raise ValueError(
                 f"{key} 'y' out of bounds: map height: {height!r}, got {y!r}"
             )
-
-
-def validate_mode(config: Dict[str, Any]) -> None:
-    if "MODE" not in config:
-        return
-
-    mode = config.get("MODE")
-    if len(mode) != 4:
-        raise ValueError(f"Invalid mode: must be 4 characters, got {mode!r}")
 
 
 def parse_config(path: str) -> Dict[str, Any]:
@@ -157,7 +195,6 @@ def parse_config(path: str) -> Dict[str, Any]:
 
                 config[key] = casted_value
                 validate_bounds(config)
-                validate_mode(config)
     except UnicodeDecodeError as e:
         raise ValueError(
             f"Config file is not valid UTF-8: {path}"

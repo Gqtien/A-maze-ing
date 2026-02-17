@@ -1,6 +1,6 @@
 import sys
 from typing import Any
-from core import Maze, parse_config
+from core import Maze, Mode, Pattern, parse_config
 from display import Renderer
 
 
@@ -24,6 +24,7 @@ def main() -> None:
         perfect=config.get("PERFECT"),
         seed=config.get("SEED"),
         output_file_name=config.get("OUTPUT_FILE"),
+        pattern=config.get("PATTERN", Pattern.FORTY_TWO),
     )
 
     # print(maze)
@@ -35,7 +36,7 @@ def main() -> None:
         config.get("WIN_H", 600),
         config.get("WIN_TITLE", "A-maze-ing !"),
         config.get("FOV", 60),
-        config.get("MODE", "wasd"),
+        config.get("MODE", Mode.WASD),
         maze,
     )
     renderer.run()
