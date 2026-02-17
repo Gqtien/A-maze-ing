@@ -83,8 +83,11 @@ class Renderer:
         self.grid_width: int = len(self.grid[0])
         self.grid_height: int = len(self.grid)
 
-        # delta time
+        # delta time and fps
         self.last_frame_time: int = time.perf_counter_ns()
+        self.fps: float = 0.0
+        self._fps_last_update_ns: int = time.perf_counter_ns()
+        self._fps_frame_count: int = 0
 
         # get cell size for minimap
         self.minimap_side: int = self.width // 4
@@ -241,6 +244,15 @@ class Renderer:
             self.mlx_ptr, self.win_ptr, self.raycasting_image, 0, 0
         )
 
+        self.mlx.mlx_string_put(
+            self.mlx_ptr,
+            self.win_ptr,
+            10,
+            10,
+            0xFFFFFFFF,
+            f"FPS: {self.fps:.0f}",
+        )
+
     def run(self) -> None:
         """Enter MLX event loop until exit or interrupt."""
 
@@ -252,6 +264,13 @@ class Renderer:
         now: int = time.perf_counter_ns()
         dt = now - self.last_frame_time
         self.last_frame_time = now
+
+        self._fps_frame_count += 1
+        elapsed_ns = now - self._fps_last_update_ns
+        if elapsed_ns >= 1_000_000_000:
+            self.fps = self._fps_frame_count * 1e9 / elapsed_ns
+            self._fps_frame_count = 0
+            self._fps_last_update_ns = now
 
         self.camera.move(dt)
         self._render()
