@@ -103,17 +103,21 @@ class Maze:
         return minimap
 
     def __repr__(self) -> str:
-        """Hex ascii map."""
+        """
+            Hex ascii map,
+            entry and exit positions,
+            shortest valid path from entry to exit.
+        """
         ret: str = ""
         for y in range(self.height):
             for x in range(self.width):
                 ret += repr(self._maze[y][x])
             ret += "\n"
-        # TODO: After an empty line,
-        # the following 3 elements are inserted in the output file on 3 lines:
-        # the entry coordinates,
-        # the exit coordinates,
-        # and the shortest valid path from entry to exit,
+        ret += "\n"
+
+        for pos in (self.entry_pos, self.exit_pos):
+            ret += ",".join(map(str, pos)) + "\n"
+        # TODO: the shortest valid path from entry to exit,
         # using the four letters N , E , S , W .
         return ret
 

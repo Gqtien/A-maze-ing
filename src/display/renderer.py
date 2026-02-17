@@ -1,3 +1,4 @@
+import signal
 import time
 from typing import Any
 from libs.mlx.mlx import Mlx
@@ -219,9 +220,10 @@ class Renderer:
             self.raycasting_buffer_b, self.raycasting_buffer_a
 
     def run(self) -> None:
-        """Enter MLX event loop until exit."""
+        """Enter MLX event loop until exit or interrupt."""
+
+        signal.signal(signal.SIGINT, self.mlx.mlx_loop_exit(self.mlx_ptr))
         self.mlx.mlx_loop(self.mlx_ptr)
-        self.mlx.mlx_loop_exit(self.mlx_ptr)
 
     def loop(self, _: Any) -> None:
         """Render, update camera and dt."""

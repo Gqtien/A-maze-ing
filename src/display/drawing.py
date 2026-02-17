@@ -10,7 +10,7 @@ def draw_vertical_line(
     height: int,
     argb: bytes,
     buffer: memoryview,
-    line_size: int
+    line_size: int,
 ) -> None:
     """Draw a vertical line at x from y0 to y1."""
     # Skip out-of-bounds pixels
@@ -21,14 +21,26 @@ def draw_vertical_line(
         offset = y * line_size + x * 4
         buffer[offset:offset + 4] = argb
 
-def draw_rect(rect: Rect, argb: bytes, buffer: memoryview, line_size: int) -> None:
+
+def draw_rect(
+    rect: Rect,
+    argb: bytes,
+    buffer: memoryview,
+    line_size: int,
+) -> None:
     """Draw a filled rectangle with a color."""
     for dx in range(rect.width):
         for dy in range(rect.height):
             put_pixel(rect.x + dx, rect.y + dy, argb, buffer, line_size)
 
 
-def put_pixel(x: int, y: int, argb: bytes, buffer: memoryview, line_size: int) -> None:
+def put_pixel(
+    x: int,
+    y: int,
+    argb: bytes,
+    buffer: memoryview,
+    line_size: int,
+) -> None:
     """Set one pixel in a buffer."""
     offset: int = y * line_size + x * 4
 
@@ -44,7 +56,7 @@ def render_player_sprite(
     camera_dir: tuple[float, float],
     cell_size: int,
     buffer: memoryview,
-    line_size: int
+    line_size: int,
 ) -> None:
     """Draw the player sprite on the minimap."""
     sprite = Sprites.PLAYER.value
