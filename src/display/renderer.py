@@ -62,16 +62,14 @@ class Renderer:
             self.mlx.mlx_get_data_addr(self.raycasting_image)
         )
 
-        # numpy buffer, with axis swapped
+        # numpy buffer
         assert self.line_size == self.width * 4, (
             f"Unexpected padding detected: "
             f"line_size={self.line_size}, expected={self.width * 4}"
         )
         self.numpy_raycasting_buffer = numpy.frombuffer(
             self.mlx_raycasting_buffer, dtype=numpy.uint8
-        ).reshape(
-            self.height, self.width, 4
-        ).swapaxes(0, 1)
+        ).reshape(self.height, self.width, 4)
 
         # precomputed clearing buffer
         self.grid: list[list[bool]] = self.maze.to_grid()
@@ -88,16 +86,26 @@ class Renderer:
         # delta time
         self.last_frame_time: int = time.perf_counter_ns()
 
-        # get cell size
-        # TODO: make sure grid is not empty, also for other places in the code
-        self.cell_size: int = min(
-            self.width // len(self.grid),
-            self.height // len(self.grid[0]),
+        # get cell size for minimap
+        self.minimap_side: int = self.width // 4
+        self.minimap_cell_size: int = max(
+            1,
+            min(
+                self.minimap_side // self.grid_width,
+                self.minimap_side // self.grid_height,
+            ),
         )
-
-        # generate minimap
+        self.minimap_offset_x: int = (
+            self.minimap_side - self.grid_width * self.minimap_cell_size
+        ) // 2
+        self.minimap_offset_y: int = (
+            self.minimap_side - self.grid_height * self.minimap_cell_size
+        ) // 2
         self.minimap_image, self.minimap_buffer = self._get_minimap()
         self.minimap_clear_buffer: bytes = bytes(self.minimap_buffer)
+        self._minimap_np = numpy.frombuffer(
+            self.minimap_buffer, dtype=numpy.uint8
+        ).reshape(self.minimap_side, self.minimap_side, 4)
 
         # Spawn camera
         ex, ey = self.maze.entry_pos
@@ -120,7 +128,7 @@ class Renderer:
         self.mlx = Mlx()
         self.mlx_ptr = self.mlx.mlx_init()
         self.win_ptr = self.mlx.mlx_new_window(
-            self.mlx_ptr, self.width + self.height, self.height, self.title
+            self.mlx_ptr, self.width, self.height, self.title
         )
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
 
@@ -153,25 +161,30 @@ class Renderer:
     def _get_minimap(self) -> tuple[Any, Any]:
         """Generate a minimap of the maze in an mlx image."""
         minimap_image: int = self.mlx.mlx_new_image(
-            self.mlx_ptr, self.width, self.height
+            self.mlx_ptr, self.minimap_side, self.minimap_side
         )
         minimap_buffer: memoryview
-        minimap_buffer, *_ = self.mlx.mlx_get_data_addr(minimap_image)
+        minimap_buffer, _bpp, minimap_line_size, _ = (
+            self.mlx.mlx_get_data_addr(minimap_image)
+        )
+
+        for i in range(0, minimap_buffer.nbytes, 4):
+            minimap_buffer[i : i + 4] = Color.FLOOR.value
 
         # draw rects for each cell
         for y, row in enumerate(self.grid):
             for x, cell in enumerate(row):
-                cell_rect: Rect = Rect(
-                    x * self.cell_size,
-                    y * self.cell_size,
-                    self.cell_size,
-                    self.cell_size
+                cell_rect = Rect(
+                    x * self.minimap_cell_size + self.minimap_offset_x,
+                    y * self.minimap_cell_size + self.minimap_offset_y,
+                    self.minimap_cell_size,
+                    self.minimap_cell_size,
                 )
                 draw_rect(
                     cell_rect,
                     self._get_cell_color(x, y),
                     minimap_buffer,
-                    self.line_size
+                    minimap_line_size,
                 )
         return minimap_image, minimap_buffer
 
@@ -193,9 +206,11 @@ class Renderer:
         render_player_sprite(
             camera_pos=(self.camera.pos.x, self.camera.pos.y),
             camera_dir=(self.camera.direction.x, self.camera.direction.y),
-            cell_size=self.cell_size,
+            cell_size=self.minimap_cell_size,
+            offset_x=self.minimap_offset_x,
+            offset_y=self.minimap_offset_y,
             buffer=self.minimap_buffer,
-            line_size=self.line_size
+            line_size=self.minimap_side * 4,
         )
 
     def _render(self) -> None:
@@ -207,25 +222,22 @@ class Renderer:
         """
         # TODO: The visual should clearly show solution path.
 
-        # clear
-        self.numpy_raycasting_buffer[:] = 200
+        self.numpy_raycasting_buffer.fill(200)
         self.minimap_buffer[:] = self.minimap_clear_buffer
 
-        # render walls and player pos
+        # render walls
         self._raycasting()
+        # minimap blit on top-right of main buffer
         self._render_player()
-
-        # update the buffer numpy -> mlx
-        self.mlx_raycasting_buffer[:] = (
-            self.numpy_raycasting_buffer.swapaxes(0, 1).ravel()
+        x0 = self.width - self.minimap_side
+        self.numpy_raycasting_buffer[0 : self.minimap_side, x0 : self.width, :] = (
+            self._minimap_np
         )
 
-        # blit images to window
+        self.mlx_raycasting_buffer[:] = self.numpy_raycasting_buffer.ravel()
+
         self.mlx.mlx_put_image_to_window(
             self.mlx_ptr, self.win_ptr, self.raycasting_image, 0, 0
-        )
-        self.mlx.mlx_put_image_to_window(
-            self.mlx_ptr, self.win_ptr, self.minimap_image, self.width, 0
         )
 
     def run(self) -> None:
