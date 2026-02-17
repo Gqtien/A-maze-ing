@@ -3,10 +3,20 @@ from pynput import keyboard
 
 
 class KeyboardHandler:
-    """Manages keyboard input in a separate thread."""
+    """Manages keyboard input in a separate thread. Singleton."""
+
+    _instance: "KeyboardHandler | None" = None
+
+    def __new__(cls) -> "KeyboardHandler":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self) -> None:
-        """Start the keyboard listener in a separate thread."""
+        """Start the keyboard listener in a separate thread (only on first init)."""
+        if hasattr(self, "_listener_started"):
+            return
+        self._listener_started = True
         self.keys_pressed: set[str | keyboard.Key] = set()
         listener = keyboard.Listener(
             on_press=self._on_press,

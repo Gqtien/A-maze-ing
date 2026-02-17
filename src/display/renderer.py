@@ -6,6 +6,7 @@ from libs.mlx.mlx import Mlx
 from core import Maze, Mode
 from utils.geometry import Vec2, Rect
 from input.keyboard import KeyboardHandler
+from input.chat import ChatHandler
 from display.constants import Color
 from display.camera import Camera, face_open_corridor
 from display.raycasting import cast_ray
@@ -51,8 +52,10 @@ class Renderer:
             (cell.x, cell.y) for cell in self.maze.get_pattern_cells()
         }
 
-        # Initialize keyboard handler
         self.keyboard_handler = KeyboardHandler()
+        self.chat_handler = ChatHandler()
+        self._esc_was_pressed: bool = False
+        self.chat_handler.register_command("fps", self._cmd_toggle_fps)
 
         self._init_mlx()
 
@@ -241,11 +244,31 @@ class Renderer:
             self._minimap_np
         )
 
+        if self.chat_handler.is_open:
+            zone = self.numpy_raycasting_buffer[self.height // 2:, :self.width // 2, :3]
+            zone[:] = zone * 0.4
+
         self.mlx_raycasting_buffer[:] = self.numpy_raycasting_buffer.ravel()
 
         self.mlx.mlx_put_image_to_window(
             self.mlx_ptr, self.win_ptr, self.raycasting_image, 0, 0
         )
+
+        if self.chat_handler.is_open:
+            line_height = 18
+            grey_zone_height = self.height - 20 - self.height // 2
+            max_message_lines = max(0, grey_zone_height // line_height)
+            lines = self.chat_handler.get_overlay_lines(max_message_lines)
+            for i, (text, color) in enumerate(lines):
+                y = self.height - 20 - line_height * (len(lines) - 1 - i)
+                self.mlx.mlx_string_put(
+                    self.mlx_ptr,
+                    self.win_ptr,
+                    10,
+                    y,
+                    color,
+                    text,
+                )
 
         if self.fps:
             self.mlx.mlx_string_put(
@@ -278,7 +301,10 @@ class Renderer:
                 self.fps_frame_count = 0
                 self.fps_last_update_ns = now
 
-        self.camera.move(dt)
+        chat_was_open = self.chat_handler.is_open
+        self.chat_handler.update()
+        if not self.chat_handler.is_open:
+            self.camera.move(dt)
         self._render()
 
         # TODO: User interactions must be available,
@@ -289,10 +315,17 @@ class Renderer:
         # • Change maze wall colours.
         # • Optional: set specific colours to display the "42" pattern.
 
-        # user interactions
-        # ESCAPE - quit
-        if keyboard.Key.esc in self.keyboard_handler.keys_pressed:
+        if (
+            keyboard.Key.esc in self.keyboard_handler.keys_pressed
+            and not self._esc_was_pressed
+            and not chat_was_open
+        ):
             self.quit()
+        self._esc_was_pressed = keyboard.Key.esc in self.keyboard_handler.keys_pressed
+
+    def _cmd_toggle_fps(self) -> None:
+        """Toggle FPS display."""
+        self.fps = not self.fps
 
     def quit(self) -> None:
         """Properly exit mlx."""

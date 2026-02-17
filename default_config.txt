@@ -10,3 +10,4 @@ WIN_TITLE=Clairement Outstanding
 FOV=80
 MODE=zqsd
 PATTERN=42
+FPS=True
