@@ -1,25 +1,26 @@
 import math
+import numpy
 from utils.geometry import Rect
 from display.constants import Color, Sprites
 
 
-def draw_vertical_line(
+def draw_horizontal_line(
     y0: int,
     y1: int,
     x: int,
     height: int,
     argb: bytes,
-    buffer: memoryview,
-    line_size: int,
+    numpy_buffer: numpy.ndarray,
 ) -> None:
     """Draw a vertical line at x from y0 to y1."""
-    # Skip out-of-bounds pixels
     y0 = max(0, y0)
     y1 = min(y1, height - 1)
 
-    for y in range(y0, y1):
-        offset = y * line_size + x * 4
-        buffer[offset:offset + 4] = argb
+    if y0 > y1:
+        return
+
+    color_array = numpy.frombuffer(argb, dtype=numpy.uint8)
+    numpy_buffer[x, y0:y1] = color_array
 
 
 def draw_rect(

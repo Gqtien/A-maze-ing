@@ -1,3 +1,4 @@
+from functools import lru_cache
 from display.constants import Color
 
 
@@ -63,8 +64,8 @@ def cast_ray(
         if (
                 map_x < 0
                 or map_y < 0
-                or map_x >= grid_width - 1
-                or map_y >= grid_height - 1
+                or map_x >= grid_width
+                or map_y >= grid_height
         ):
             break
         hit = grid[map_y][map_x]
@@ -84,6 +85,7 @@ def cast_ray(
     return perp_wall_dist, color
 
 
+@lru_cache()  # NOTE: that's one of the biggest opti, dont remove !
 def darken_color_to_bytes(
     color: Color, do_darken: bool = True, amount: int = 0x20
 ) -> bytes:

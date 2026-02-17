@@ -1,6 +1,7 @@
 import signal
 import time
 from typing import Any
+import numpy
 from libs.mlx.mlx import Mlx
 from core import Maze, Mode
 from utils.geometry import Vec2, Rect
@@ -9,9 +10,9 @@ from display.constants import Color
 from display.camera import Camera, face_open_corridor
 from display.raycasting import cast_ray
 from display.drawing import (
-    draw_vertical_line,
+    draw_horizontal_line,
     draw_rect,
-    render_player_sprite
+    render_player_sprite,
 )
 from pynput import keyboard
 
@@ -53,23 +54,28 @@ class Renderer:
 
         self._init_mlx()
 
-        # a/b buffers for buffer swapping
-        self.raycasting_image_a = self.mlx.mlx_new_image(
+        # mlx buffer
+        self.raycasting_image = self.mlx.mlx_new_image(
             self.mlx_ptr, self.width, self.height
         )
-        self.raycasting_image_b = self.mlx.mlx_new_image(
-            self.mlx_ptr, self.width, self.height
+        self.mlx_raycasting_buffer, _bits_per_pixel, self.line_size, _ = (
+            self.mlx.mlx_get_data_addr(self.raycasting_image)
         )
-        self.raycasting_buffer_a, _bits_per_pixel, self.line_size, _endian = (
-            self.mlx.mlx_get_data_addr(self.raycasting_image_a)
+
+        # numpy buffer, with axis swapped
+        assert self.line_size == self.width * 4, (
+            f"Unexpected padding detected: "
+            f"line_size={self.line_size}, expected={self.width * 4}"
         )
-        self.raycasting_buffer_b, _bits_per_pixel, self.line_size, _endian = (
-            self.mlx.mlx_get_data_addr(self.raycasting_image_b)
-        )
+        self.numpy_raycasting_buffer = numpy.frombuffer(
+            self.mlx_raycasting_buffer, dtype=numpy.uint8
+        ).reshape(
+            self.height, self.width, 4
+        ).swapaxes(0, 1)
 
         # precomputed clearing buffer
         self.grid: list[list[bool]] = self.maze.to_grid()
-        half_buffer_size: int = self.raycasting_buffer_b.nbytes // 2
+        half_buffer_size: int = self.mlx_raycasting_buffer.nbytes // 2
         repeats = half_buffer_size // len(Color.FLOOR.value)
         self.clear_bytes: bytes = (
             Color.SKY.value * repeats + Color.FLOOR.value * repeats
@@ -135,14 +141,13 @@ class Renderer:
             )
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
-            draw_vertical_line(
+            draw_horizontal_line(
                 y0=line_y,
                 y1=line_y + line_height,
                 x=x,
                 height=self.height,
                 argb=color,
-                buffer=self.raycasting_buffer_b,
-                line_size=self.line_size
+                numpy_buffer=self.numpy_raycasting_buffer,
             )
 
     def _get_minimap(self) -> tuple[Any, Any]:
@@ -198,32 +203,30 @@ class Renderer:
 
         Draw sky and floor,
         cast one ray per column,
-        put raycasting and minimap images to window,
-        swap raycasting buffers,
+        put raycasting and minimap images to window.
         """
         # TODO: The visual should clearly show solution path.
 
         # clear
-        self.raycasting_buffer_b[:] = self.clear_bytes
+        self.numpy_raycasting_buffer[:] = 200
         self.minimap_buffer[:] = self.minimap_clear_buffer
 
         # render walls and player pos
         self._raycasting()
         self._render_player()
 
+        # update the buffer numpy -> mlx
+        self.mlx_raycasting_buffer[:] = (
+            self.numpy_raycasting_buffer.swapaxes(0, 1).ravel()
+        )
+
         # blit images to window
         self.mlx.mlx_put_image_to_window(
-            self.mlx_ptr, self.win_ptr, self.raycasting_image_a, 0, 0
+            self.mlx_ptr, self.win_ptr, self.raycasting_image, 0, 0
         )
         self.mlx.mlx_put_image_to_window(
             self.mlx_ptr, self.win_ptr, self.minimap_image, self.width, 0
         )
-
-        # swap draw buffers
-        self.raycasting_image_a, self.raycasting_image_b = \
-            self.raycasting_image_b, self.raycasting_image_a
-        self.raycasting_buffer_a, self.raycasting_buffer_b = \
-            self.raycasting_buffer_b, self.raycasting_buffer_a
 
     def run(self) -> None:
         """Enter MLX event loop until exit or interrupt."""
@@ -251,7 +254,10 @@ class Renderer:
         # user interactions
         # ESCAPE - quit
         if keyboard.Key.esc in keys_pressed:
-            self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
-            self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image_a)
-            self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image_b)
-            self.mlx.mlx_loop_exit(self.mlx_ptr)
+            self.quit()
+
+    def quit(self) -> None:
+        """Properly exit mlx."""
+        self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
+        self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image)
+        self.mlx.mlx_loop_exit(self.mlx_ptr)
