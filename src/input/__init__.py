@@ -1,6 +1,5 @@
-from .keyboard import KeyboardHandler, keys_pressed
+from .keyboard import KeyboardHandler
 
 __all__ = [
     "KeyboardHandler",
-    "keys_pressed",
 ]

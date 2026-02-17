@@ -5,7 +5,7 @@ import numpy
 from libs.mlx.mlx import Mlx
 from core import Maze, Mode
 from utils.geometry import Vec2, Rect
-from input.keyboard import KeyboardHandler, keys_pressed
+from input.keyboard import KeyboardHandler
 from display.constants import Color
 from display.camera import Camera, face_open_corridor
 from display.raycasting import cast_ray
@@ -50,7 +50,7 @@ class Renderer:
         }
 
         # Initialize keyboard handler
-        self._keyboard_handler = KeyboardHandler()
+        self.keyboard_handler = KeyboardHandler()
 
         self._init_mlx()
 
@@ -117,6 +117,7 @@ class Renderer:
             fov=fov,
             grid=self.grid,
             mode=mode,
+            keyboard_handler=self.keyboard_handler,
         )
 
     def _init_mlx(self) -> None:
@@ -265,7 +266,7 @@ class Renderer:
 
         # user interactions
         # ESCAPE - quit
-        if keyboard.Key.esc in keys_pressed:
+        if keyboard.Key.esc in self.keyboard_handler.keys_pressed:
             self.quit()
 
     def quit(self) -> None:

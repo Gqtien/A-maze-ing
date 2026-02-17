@@ -1,6 +1,6 @@
 import math
 from utils.geometry import Vec2, Rect
-from input.keyboard import keys_pressed
+from input.keyboard import KeyboardHandler
 from pynput import keyboard
 from core import Mode
 
@@ -24,6 +24,7 @@ class Camera:
         fov: int,
         grid: list[list[bool]],
         mode: Mode | None = None,
+        keyboard_handler: KeyboardHandler | None = None,
     ) -> None:
         """Pos and direction in grid coords, FOV in degrees."""
         self.pos: Vec2 = pos
@@ -35,6 +36,7 @@ class Camera:
         self.grid_height: int = len(grid) if grid else 0
         self.mode: Mode = mode if mode is not None else Mode("wasd")
         self.keys = self.mode.keys()
+        self.keyboard_handler: KeyboardHandler | None = keyboard_handler
 
         # Movement in units per second (independant from frame rate)
         self.move_speed: float = 2.5
@@ -71,35 +73,36 @@ class Camera:
     def move(self, delta_time_ns: int) -> None:
         """Move the camera."""
         dt: float = delta_time_ns / 1000000000.0
+        pressed: set[str | keyboard.Key] = self.keyboard_handler.keys_pressed
 
-        if keyboard.Key.right in keys_pressed:
+        if keyboard.Key.right in pressed:
             self.direction.rotate(self.rotate_speed * dt)
-        elif keyboard.Key.left in keys_pressed:
+        elif keyboard.Key.left in pressed:
             self.direction.rotate(-self.rotate_speed * dt)
 
-        if keyboard.Key.up in keys_pressed:
+        if keyboard.Key.up in pressed:
             new_fov = self.fov + self.fov_change_speed * dt
             self.fov = min(120, int(new_fov))
             self.fov_scale = math.tan(math.radians(self.fov) / 2)
-        elif keyboard.Key.down in keys_pressed:
+        elif keyboard.Key.down in pressed:
             new_fov = self.fov - self.fov_change_speed * dt
             self.fov = max(30, int(new_fov))
             self.fov_scale = math.tan(math.radians(self.fov) / 2)
 
-        if self.keys.forward in keys_pressed:
+        if self.keys.forward in pressed:
             new_x = self.pos.x + self.direction.x * self.move_speed * dt
             new_y = self.pos.y + self.direction.y * self.move_speed * dt
             self._try_move_with_slide(new_x, new_y)
-        elif self.keys.back in keys_pressed:
+        elif self.keys.back in pressed:
             new_x = self.pos.x - self.direction.x * self.move_speed * dt
             new_y = self.pos.y - self.direction.y * self.move_speed * dt
             self._try_move_with_slide(new_x, new_y)
 
-        if self.keys.left in keys_pressed:
+        if self.keys.left in pressed:
             new_x = self.pos.x + self.direction.y * self.strafe_speed * dt
             new_y = self.pos.y - self.direction.x * self.strafe_speed * dt
             self._try_move_with_slide(new_x, new_y)
-        elif self.keys.right in keys_pressed:
+        elif self.keys.right in pressed:
             new_x = self.pos.x - self.direction.y * self.strafe_speed * dt
             new_y = self.pos.y + self.direction.x * self.strafe_speed * dt
             self._try_move_with_slide(new_x, new_y)

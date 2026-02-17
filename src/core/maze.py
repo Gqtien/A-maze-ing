@@ -84,7 +84,6 @@ class Maze:
         self.exit_pos: tuple[int, int] = (
             exit_pos if exit_pos else (self.width - 1, self.height - 1)
         )
-        # TODO: assert entry_pos != exit_pos
         self.perfect: bool = perfect if perfect else True
         self.seed: int = seed if seed else random.randint(0, 1_000_000)
         self._maze: list[list[Cell]] = []
@@ -92,7 +91,6 @@ class Maze:
 
         self._generate()
 
-        # TODO: save to file if output_file_name is not None
         if output_file_name is not None:
             self.save_to_file(output_file_name)
 
