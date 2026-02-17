@@ -135,8 +135,8 @@ class Maze:
 
     def get_42_cells(self) -> set[Cell]:
         """Return cells to mark the 42 in the center."""
-        pattern_4: list[str] = Digits.FOUR_SMALL.value
-        pattern_2: list[str] = Digits.TWO_SMALL.value
+        pattern_4: list[str] = Digits.SIX_SMALL.value
+        pattern_2: list[str] = Digits.SEVEN_SMALL.value
 
         digit_height: int = len(pattern_4)
         digit_width: int = len(pattern_4[0]) if pattern_4 else 0
