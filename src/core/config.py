@@ -7,9 +7,9 @@ class KeyBindings(NamedTuple):
     """Keys for forward, right, back, left."""
 
     forward: str
-    right: str
-    back: str
     left: str
+    back: str
+    right: str
 
 
 class Mode(Enum):
@@ -19,8 +19,8 @@ class Mode(Enum):
     def keys(self) -> KeyBindings:
         """Return key bindings for this mode."""
         bindings: dict[str, KeyBindings] = {
-            "wasd": KeyBindings(forward="w", right="a", back="s", left="d"),
-            "zqsd": KeyBindings(forward="z", right="q", back="s", left="d"),
+            "wasd": KeyBindings(forward="w", left="a", back="s", right="d"),
+            "zqsd": KeyBindings(forward="z", left="q", back="s", right="d"),
         }
         return bindings[self.value]
 

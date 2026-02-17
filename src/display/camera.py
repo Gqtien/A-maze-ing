@@ -95,11 +95,11 @@ class Camera:
             new_y = self.pos.y - self.direction.y * self.move_speed * dt
             self._try_move_with_slide(new_x, new_y)
 
-        if self.keys.right in keys_pressed:
+        if self.keys.left in keys_pressed:
             new_x = self.pos.x + self.direction.y * self.strafe_speed * dt
             new_y = self.pos.y - self.direction.x * self.strafe_speed * dt
             self._try_move_with_slide(new_x, new_y)
-        elif self.keys.left in keys_pressed:
+        elif self.keys.right in keys_pressed:
             new_x = self.pos.x - self.direction.y * self.strafe_speed * dt
             new_y = self.pos.y + self.direction.x * self.strafe_speed * dt
             self._try_move_with_slide(new_x, new_y)
