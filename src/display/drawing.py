@@ -42,12 +42,17 @@ def put_pixel(
     line_size: int,
 ) -> None:
     """Set one pixel in a buffer."""
-    offset: int = y * line_size + x * 4
-
     # Skip out-of-bounds pixels
-    if offset >= buffer.nbytes - 4:
+    if x < 0 or y < 0:
         return
 
+    width_px: int = line_size // 4
+    height_px: int = buffer.nbytes // line_size
+
+    if x >= width_px or y >= height_px:
+        return
+
+    offset: int = y * line_size + x * 4
     buffer[offset:offset + 4] = argb
 
 
