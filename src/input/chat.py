@@ -2,7 +2,7 @@ import string
 from collections.abc import Callable
 from typing import Set
 from pynput import keyboard
-from input.keyboard import KeyboardHandler
+from input import KeyboardHandler
 
 
 class ChatHandler:
@@ -11,14 +11,14 @@ class ChatHandler:
     def __init__(self) -> None:
         self.keyboard_handler: KeyboardHandler = KeyboardHandler()
         self.is_open: bool = False
-        self.messages: list[tuple[str, int]] = []
+        self.messages: list[tuple[str, bytes]] = []
         self.input_buffer: str = "/"
         self._commands: dict[str, Callable[[], None]] = {}
         self._slash_was_pressed: bool = False
         self._escape_was_pressed: bool = False
         self._prev_keys_pressed: Set[str | keyboard.Key] = set()
-        self.default_color: int = 0xFFFFFFFF
-        self.error_color: int = 0xFF6666FF
+        self.default_color: bytes = b"\xFF\xFF\xFF\xFF"
+        self.error_color: bytes = b"\x00\x00\xFF\xFF"
         self._register_builtins()
 
     def _register_builtins(self) -> None:
@@ -28,20 +28,30 @@ class ChatHandler:
 
         self._commands["help"] = help_cmd
 
-    def register_command(self, name: str, callback: Callable[[], None]) -> None:
+    def register_command(
+        self,
+        name: str,
+        callback: Callable[[], None],
+    ) -> None:
+        """Register a command."""
         self._commands[name] = callback
 
     def get_display_text(self) -> str:
+        """Return the current input buffer."""
         return self.input_buffer
 
-    def get_overlay_lines(self, max_message_lines: int) -> list[tuple[str, int]]:
-        """(text, color) for each line in the grey zone."""
+    def get_overlay_lines(
+        self,
+        max_message_lines: int,
+    ) -> list[tuple[str, bytes]]:
+        """Return (text, color) for each line in the grey zone."""
         if max_message_lines <= 0:
             return [(self.get_display_text(), self.default_color)]
         last = self.messages[-max_message_lines:] if self.messages else []
         return last + [(self.get_display_text(), self.default_color)]
 
     def update(self) -> None:
+        """Update the chat handler."""
         keys_pressed = self.keyboard_handler.keys_pressed
         slash_pressed = ":" in keys_pressed
         escape_pressed = keyboard.Key.esc in keys_pressed

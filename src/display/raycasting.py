@@ -1,5 +1,5 @@
 from functools import lru_cache
-from display.constants import Color
+from assets import Color
 
 
 def cast_ray(

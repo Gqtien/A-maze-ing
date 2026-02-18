@@ -1,6 +1,6 @@
 import random
 from enum import Enum
-from core.digits import Digits
+from assets import DIGITS
 from core.config import Pattern
 
 
@@ -137,8 +137,8 @@ class Maze:
     def get_pattern_cells(self) -> set[Cell]:
         """Return cells to mark the 42 in the center."""
         d = self.pattern.digits()
-        pattern_first: list[str] = Digits[d.first].value
-        pattern_second: list[str] = Digits[d.second].value
+        pattern_first: list[str] = DIGITS[d.first]
+        pattern_second: list[str] = DIGITS[d.second]
 
         digit_height: int = len(pattern_first)
         digit_width: int = len(pattern_first[0]) if pattern_first else 0

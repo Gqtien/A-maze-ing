@@ -1,21 +1,21 @@
 import signal
 import time
-from typing import Any
 import numpy
+from typing import Any
+from pynput import keyboard
 from libs.mlx.mlx import Mlx
 from core import Maze, Mode
-from utils.geometry import Vec2, Rect
-from input.keyboard import KeyboardHandler
-from input.chat import ChatHandler
-from display.constants import Color
+from utils import Vec2, Rect
+from input import KeyboardHandler, ChatHandler
+from assets import Color, CHAR_GLYPH_H
 from display.camera import Camera, face_open_corridor
 from display.raycasting import cast_ray
 from display.drawing import (
     draw_horizontal_line,
     draw_rect,
+    put_string,
     render_player_sprite,
 )
-from pynput import keyboard
 
 
 class Renderer:
@@ -245,40 +245,42 @@ class Renderer:
         )
 
         if self.chat_handler.is_open:
-            zone = self.numpy_raycasting_buffer[self.height // 2:, :self.width // 2, :3]
+            zone = self.numpy_raycasting_buffer[
+                self.height // 2:,
+                :self.width // 2,
+                :3,
+            ]
             zone[:] = zone * 0.4
+
+        if self.fps:
+            put_string(
+                f"FPS: {self.fps_value:.0f}",
+                10,
+                10,
+                b"\xFF\xFF\xFF\xFF",
+                self.numpy_raycasting_buffer,
+            )
+
+        if self.chat_handler.is_open:
+            line_height = CHAR_GLYPH_H
+            grey_zone_height = self.height - 20 - self.height // 2
+            max_message_lines = max(0, grey_zone_height // line_height)
+            lines = self.chat_handler.get_overlay_lines(max_message_lines)
+            for i, (text, color_bgra) in enumerate(lines):
+                y = self.height - 20 - line_height * (len(lines) - 1 - i)
+                put_string(
+                    text,
+                    10,
+                    y,
+                    color_bgra,
+                    self.numpy_raycasting_buffer,
+                )
 
         self.mlx_raycasting_buffer[:] = self.numpy_raycasting_buffer.ravel()
 
         self.mlx.mlx_put_image_to_window(
             self.mlx_ptr, self.win_ptr, self.raycasting_image, 0, 0
         )
-
-        if self.chat_handler.is_open:
-            line_height = 18
-            grey_zone_height = self.height - 20 - self.height // 2
-            max_message_lines = max(0, grey_zone_height // line_height)
-            lines = self.chat_handler.get_overlay_lines(max_message_lines)
-            for i, (text, color) in enumerate(lines):
-                y = self.height - 20 - line_height * (len(lines) - 1 - i)
-                self.mlx.mlx_string_put(
-                    self.mlx_ptr,
-                    self.win_ptr,
-                    10,
-                    y,
-                    color,
-                    text,
-                )
-
-        if self.fps:
-            self.mlx.mlx_string_put(
-                self.mlx_ptr,
-                self.win_ptr,
-                10,
-                10,
-                0xFFFFFFFF,
-                f"FPS: {self.fps_value:.0f}",
-            )
 
     def run(self) -> None:
         """Enter MLX event loop until exit or interrupt."""
@@ -292,7 +294,6 @@ class Renderer:
         dt = now - self.last_frame_time
         self.last_frame_time = now
 
-        
         if self.fps:
             self.fps_frame_count += 1
             elapsed_ns = now - self.fps_last_update_ns
@@ -321,7 +322,9 @@ class Renderer:
             and not chat_was_open
         ):
             self.quit()
-        self._esc_was_pressed = keyboard.Key.esc in self.keyboard_handler.keys_pressed
+        self._esc_was_pressed = (
+            keyboard.Key.esc in self.keyboard_handler.keys_pressed
+        )
 
     def _cmd_toggle_fps(self) -> None:
         """Toggle FPS display."""

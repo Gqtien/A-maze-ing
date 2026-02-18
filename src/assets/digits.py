@@ -1,85 +1,84 @@
-from enum import Enum
+DIGIT_GLYPH_H = 5
+DIGIT_GLYPH_W = 3
 
-
-class Digits(Enum):
-    """Digits."""
-
-    ZERO = [
+DIGITS: dict[str, list[str]] = {
+    "ZERO": [
         "OOO",
         "O.O",
         "O.O",
         "O.O",
         "OOO",
-    ]
+    ],
 
-    ONE = [
+    "ONE": [
         "OO.",
         ".O.",
         ".O.",
         ".O.",
         "OOO",
-    ]
+    ],
 
-    TWO = [
+    "TWO": [
         "OOO",
         "..O",
         "OOO",
         "O..",
         "OOO",
-    ]
+    ],
 
-    THREE = [
+    "THREE": [
         "OOO",
         "..O",
         ".OO",
         "..O",
         "OOO",
-    ]
+    ],
 
-    FOUR = [
+    "FOUR": [
         "O.O",
         "O.O",
         "OOO",
         "..O",
         "..O",
-    ]
+    ],
 
-    FIVE = [
+    "FIVE": [
         "OOO",
         "O..",
         "OOO",
         "..O",
         "OOO",
-    ]
+    ],
 
-    SIX = [
+    "SIX": [
         "OOO",
         "O..",
         "OOO",
         "O.O",
         "OOO",
-    ]
+    ],
 
-    SEVEN = [
+    "SEVEN": [
         "OOO",
         "..O",
         "..O",
         "..O",
         "..O",
-    ]
+    ],
 
-    EIGHT = [
+    "EIGHT": [
         "OOO",
         "O.O",
         "OOO",
         "O.O",
         "OOO",
-    ]
+    ],
 
-    NINE = [
+    "NINE": [
         "OOO",
         "O.O",
         "OOO",
         "..O",
         "OOO",
-    ]
+    ],
+}

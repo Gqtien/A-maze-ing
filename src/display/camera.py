@@ -1,6 +1,6 @@
 import math
-from utils.geometry import Vec2, Rect
-from input.keyboard import KeyboardHandler
+from utils import Vec2, Rect
+from input import KeyboardHandler
 from pynput import keyboard
 from core import Mode
 

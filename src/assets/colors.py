@@ -14,21 +14,3 @@ class Color(Enum):
     WALL = b'\xA0\xA0\xA0\xFF'
     PLAYER = b'\xFF\x00\xFF\xFF'
     PATTERN = b'\xFF\x00\x00\xFF'
-
-
-class Sprites(Enum):
-    """Sprite definitions."""
-
-    PLAYER = [
-        ".....P.....",
-        "....PPP....",
-        "...PPPPP...",
-        "..PPPPPPP..",
-        ".PPPPPPPPP.",
-        "PPPPPPPPPPP",
-        "PPPPPPPPPPP",
-        "PPPPPPPPPPP",
-        "PPPPP.PPPPP",
-        "PPPP...PPPP",
-        "PP.......PP",
-    ]

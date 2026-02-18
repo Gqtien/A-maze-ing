@@ -1,7 +1,16 @@
 import math
+from functools import lru_cache
 import numpy
-from utils.geometry import Rect
-from display.constants import Color, Sprites
+from utils import Rect
+from assets import (
+    Color,
+    CHARS,
+    CHAR_GLYPH_H,
+    CHAR_GLYPH_W,
+    SPRITES,
+    SPRITE_H,
+    SPRITE_W,
+)
 
 
 def draw_horizontal_line(
@@ -57,6 +66,58 @@ def put_pixel(
     buffer[offset:offset + 4] = argb
 
 
+@lru_cache()
+def alpha_for_char(char: str) -> numpy.ndarray:
+    """Alpha bitmap for one char. Cached."""
+    if len(char) != 1:
+        return numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W))
+
+    glyph = CHARS.get(char)
+    if not glyph:
+        return numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W))
+
+    # build opacty grid
+    a = numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W))
+    for row, line in enumerate(glyph):
+        for col, cell in enumerate(line):
+            if "0" <= cell <= "9":
+                a[row, col] = (int(cell) + 1) / 10.0
+    return a
+
+
+def put_string(
+    string: str,
+    x: int,
+    y: int,
+    argb: bytes,
+    numpy_buffer: numpy.ndarray,
+    line_size: int | None = None,
+) -> None:
+    """Draw a string."""
+    if not string:
+        return
+
+    # build alpha mask for the whole string
+    alpha = numpy.hstack([alpha_for_char(char) for char in string])
+    height, width = alpha.shape
+
+    # clip to buffer bounds
+    y1 = min(y + height, numpy_buffer.shape[0])
+    x1 = min(x + width, numpy_buffer.shape[1])
+    if y >= y1 or x >= x1:
+        return
+
+    # region of the buffer where we draw the text
+    text_region = numpy_buffer[y:y1, x:x1, :]
+    alpha_region = alpha[:y1 - y, :x1 - x, numpy.newaxis]
+    # blend text color onto background
+    color_array = numpy.frombuffer(argb, dtype=numpy.uint8)
+    text_region[:] = (
+        text_region * (1.0 - alpha_region)
+        + alpha_region * color_array
+    )
+
+
 def render_player_sprite(
     camera_pos: tuple[float, float],
     camera_dir: tuple[float, float],
@@ -67,12 +128,6 @@ def render_player_sprite(
     offset_y: int = 0,
 ) -> None:
     """Draw the player sprite on the minimap."""
-    sprite = Sprites.PLAYER.value
-    sprite_width = len(sprite[0]) if sprite else 0
-    sprite_height = len(sprite)
-    if not sprite or sprite_width == 0:
-        return
-
     player_pixel_x = int(camera_pos[0] * cell_size) + offset_x
     player_pixel_y = int(camera_pos[1] * cell_size) + offset_y
 
@@ -80,17 +135,17 @@ def render_player_sprite(
     cos_a = math.cos(angle)
     sin_a = math.sin(angle)
 
-    center_x = (sprite_width - 1) / 2.0
-    center_y = (sprite_height - 1) / 2.0
+    center_x = (SPRITE_W - 1) / 2.0
+    center_y = (SPRITE_H - 1) / 2.0
 
-    half = max(sprite_width, sprite_height) + 1
+    half = max(SPRITE_W, SPRITE_H) + 1
     for dest_y in range(-half, half + 1):
         for dest_x in range(-half, half + 1):
             sx = center_x + dest_x * cos_a + dest_y * sin_a
             sy = center_y - dest_x * sin_a + dest_y * cos_a
             ix, iy = int(sx), int(sy)
-            if 0 <= ix < sprite_width and 0 <= iy < sprite_height:
-                if sprite[iy][ix] == "P":
+            if 0 <= ix < SPRITE_W and 0 <= iy < SPRITE_H:
+                if SPRITES["PLAYER"][iy][ix] == "P":
                     put_pixel(
                         player_pixel_x + dest_x,
                         player_pixel_y + dest_y,

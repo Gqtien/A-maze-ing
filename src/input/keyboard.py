@@ -13,7 +13,7 @@ class KeyboardHandler:
         return cls._instance
 
     def __init__(self) -> None:
-        """Start the keyboard listener in a separate thread (only on first init)."""
+        """Start the keyboard listener in a separate thread."""
         if hasattr(self, "_listener_started"):
             return
         self._listener_started = True
