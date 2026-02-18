@@ -3,7 +3,6 @@ from functools import lru_cache
 import numpy
 from utils import Rect
 from assets import (
-    Color,
     CHARS,
     CHAR_GLYPH_H,
     CHAR_GLYPH_W,
@@ -124,6 +123,7 @@ def render_player_sprite(
     cell_size: int,
     buffer: memoryview,
     line_size: int,
+    color: bytes,
     offset_x: int = 0,
     offset_y: int = 0,
 ) -> None:
@@ -149,7 +149,7 @@ def render_player_sprite(
                     put_pixel(
                         player_pixel_x + dest_x,
                         player_pixel_y + dest_y,
-                        Color.PLAYER.value,
+                        color,
                         buffer,
                         line_size,
                     )

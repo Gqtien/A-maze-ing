@@ -4,6 +4,8 @@ from typing import Set
 from pynput import keyboard
 from input import KeyboardHandler
 
+CommandResult = tuple[str | None, bool] | None
+
 
 class ChatHandler:
     """Handles chat overlay and /commands."""
@@ -13,7 +15,7 @@ class ChatHandler:
         self.is_open: bool = False
         self.messages: list[tuple[str, bytes]] = []
         self.input_buffer: str = "/"
-        self._commands: dict[str, Callable[[], None]] = {}
+        self._commands: dict[str, Callable[[], CommandResult]] = {}
         self._slash_was_pressed: bool = False
         self._escape_was_pressed: bool = False
         self._prev_keys_pressed: Set[str | keyboard.Key] = set()
@@ -23,7 +25,7 @@ class ChatHandler:
 
     def _register_builtins(self) -> None:
         def help_cmd() -> None:
-            names = ", ".join(f"/{n}" for n in sorted(self._commands.keys()))
+            names = ", ".join(f"/{n}" for n in list(self._commands.keys())[1:])
             self.messages.append((f"Commands: {names}", self.default_color))
 
         self._commands["help"] = help_cmd
@@ -31,9 +33,9 @@ class ChatHandler:
     def register_command(
         self,
         name: str,
-        callback: Callable[[], None],
+        callback: Callable[[], CommandResult],
     ) -> None:
-        """Register a command."""
+        """Register a command. Callback can return (message, close_chat)."""
         self._commands[name] = callback
 
     def get_display_text(self) -> str:
@@ -83,7 +85,13 @@ class ChatHandler:
                     if not name:
                         continue
                     if name in self._commands:
-                        self._commands[name]()
+                        result = self._commands[name]()
+                        if result is not None:
+                            msg, close_chat = result
+                            if msg is not None:
+                                self.messages.append((msg, self.default_color))
+                            if close_chat:
+                                self.is_open = False
                     else:
                         self.messages.append(
                             ("Unknown command. Type /help", self.error_color)

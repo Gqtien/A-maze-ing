@@ -12,5 +12,17 @@ class Color(Enum):
     FLOOR = b'\x37\x37\x37\xFF'
     SKY = b'\xEB\xCE\x87\xFF'
     WALL = b'\xA0\xA0\xA0\xFF'
-    PLAYER = b'\xFF\x00\xFF\xFF'
+    PLAYER = b'\x9C\x5D\x3A\xFF'
     PATTERN = b'\xFF\x00\x00\xFF'
+
+
+class ColorPalette(Enum):
+    """Color palette for minimap."""
+
+    WHITE = b"\xFF\xFF\xFF\xFF"
+    BLUE = b"\xD8\xA8\xA8\xFF"
+    RED = b"\xA8\xA8\xD8\xFF"
+    GREEN = b"\xA8\xD8\xA8\xFF"
+    YELLOW = b"\xA8\xD8\xD8\xFF"
+    CYAN = b"\xD8\xA8\xD8\xFF"
+    MAGENTA = b"\xD8\xD8\xA8\xFF"

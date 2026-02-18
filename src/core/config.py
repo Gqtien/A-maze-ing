@@ -4,7 +4,7 @@ from typing import Any, Dict, NamedTuple
 
 
 class Mode:
-    """Key layout: forward, left, back, right."""
+    """Key layout"""
 
     class KeyBindings(NamedTuple):
         """Keys for forward, left, back, right."""
@@ -14,7 +14,7 @@ class Mode:
         right: str
 
     def __init__(self, value: str) -> None:
-        """Parse value: exactly 4 letters (forward, left, back, right)."""
+        """Parse value: exactly 4 letters for each direction."""
         raw = value.strip()
         if len(raw) != 4:
             print(
@@ -43,7 +43,7 @@ class Mode:
 
 
 class Pattern:
-    """Two-digit pattern. Built from any 2-digit string (e.g. 42, 67, 00)."""
+    """Two-digit pattern"""
     class PatternDigits(NamedTuple):
         """Names of the two Digits enum members for patterns."""
         first: str

@@ -4,10 +4,10 @@ import numpy
 from typing import Any
 from pynput import keyboard
 from libs.mlx.mlx import Mlx
-from core import Maze, Mode
+from core import Maze
 from utils import Vec2, Rect
 from input import KeyboardHandler, ChatHandler
-from assets import Color, CHAR_GLYPH_H
+from assets import Color, ColorPalette, CHAR_GLYPH_H
 from display.camera import Camera, face_open_corridor
 from display.raycasting import cast_ray
 from display.drawing import (
@@ -21,41 +21,36 @@ from display.drawing import (
 class Renderer:
     """MLX window, raycasts the maze grid, handles key input."""
 
-    def __init__(
-        self,
-        width: int,
-        height: int,
-        title: str,
-        fov: int,
-        mode: Mode,
-        fps: bool,
-        maze: Maze,
-    ) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """Create a renderer.
 
         create window and images,
         camera at entry facing a corridor,
         register mlx loop.
         """
-        self.width: int = width
-        self.height: int = height
-        self.title: str = title
-        self.fps: bool = fps
-        self.maze: Maze = maze
-        self.grid_entry_pos: tuple[int, int] = (
-            self.maze.entry_pos[0] * 3 + 1, self.maze.entry_pos[1] * 3 + 1
-        )
-        self.grid_exit_pos: tuple[int, int] = (
-            self.maze.exit_pos[0] * 3 + 1, self.maze.exit_pos[1] * 3 + 1
-        )
-        self.cells_pattern: set[tuple[int, int]] = {
-            (cell.x, cell.y) for cell in self.maze.get_pattern_cells()
-        }
+        self.config: dict[str, Any] = config
+        self.width: int = self.config.get("WIN_W", 1280)
+        self.height: int = self.config.get("WIN_H", 720)
+        self.title: str = self.config.get("WIN_TITLE", "A-Maze-Ing")
+        self.fps: bool = self.config.get("FPS", True)
+        self.maze: Maze = self._generate_maze()
+        self._set_maze_state()
 
         self.keyboard_handler = KeyboardHandler()
         self.chat_handler = ChatHandler()
         self._esc_was_pressed: bool = False
+        self.chat_handler.register_command("regen", self._cmd_reset_maze)
         self.chat_handler.register_command("fps", self._cmd_toggle_fps)
+        self.chat_handler.register_command("color", self._cmd_color)
+
+        self._minimap_palette: list[ColorPalette] = list(ColorPalette)
+        self._minimap_wall_color_index: int = 0
+        self._minimap_wall_color: bytes = self._minimap_palette[
+            self._minimap_wall_color_index
+        ].value
+        self._minimap_pattern_color: bytes = self._darker_minimap_color(
+            self._minimap_wall_color
+        )
 
         self._init_mlx()
 
@@ -76,17 +71,10 @@ class Renderer:
             self.mlx_raycasting_buffer, dtype=numpy.uint8
         ).reshape(self.height, self.width, 4)
 
-        # precomputed clearing buffer
-        self.grid: list[list[bool]] = self.maze.to_grid()
-        half_buffer_size: int = self.mlx_raycasting_buffer.nbytes // 2
-        repeats = half_buffer_size // len(Color.FLOOR.value)
-        self.clear_bytes: bytes = (
-            Color.SKY.value * repeats + Color.FLOOR.value * repeats
+        # precomputed chat background color buffer
+        self.chat_bg_buffer: numpy.ndarray = numpy.empty(
+            (self.height // 2, self.width // 2, 3), dtype=numpy.float32
         )
-
-        # precomputed len
-        self.grid_width: int = len(self.grid[0])
-        self.grid_height: int = len(self.grid)
 
         # delta time and fps
         self.last_frame_time: int = time.perf_counter_ns()
@@ -95,52 +83,143 @@ class Renderer:
             self.fps_last_update_ns: int = time.perf_counter_ns()
             self.fps_frame_count: int = 0
 
-        # get cell size for minimap
+        # minimap
         self.minimap_side: int = self.width // 4
-        self.minimap_cell_size: int = max(
-            1,
-            min(
-                self.minimap_side // self.grid_width,
-                self.minimap_side // self.grid_height,
-            ),
-        )
-        self.minimap_offset_x: int = (
-            self.minimap_side - self.grid_width * self.minimap_cell_size
-        ) // 2
-        self.minimap_offset_y: int = (
-            self.minimap_side - self.grid_height * self.minimap_cell_size
-        ) // 2
-        self.minimap_image, self.minimap_buffer = self._get_minimap()
-        self.minimap_clear_buffer: bytes = bytes(self.minimap_buffer)
-        self._minimap_np = numpy.frombuffer(
-            self.minimap_buffer, dtype=numpy.uint8
-        ).reshape(self.minimap_side, self.minimap_side, 4)
+        self._compute_minimap()
+        self._init_minimap()
 
-        # Spawn camera
-        ex, ey = self.maze.entry_pos
-        pos: Vec2 = Vec2(ex * 3 + 1.5, ey * 3 + 1.5)
-        direction: Vec2 = face_open_corridor(self.grid, pos)
-        self.camera: Camera = Camera(
-            pos=pos,
-            direction=direction,
-            fov=fov,
-            grid=self.grid,
-            mode=mode,
-            keyboard_handler=self.keyboard_handler,
-        )
+        self._spawn_camera()
 
     def _init_mlx(self) -> None:
-        """Init and setup mlx.
-
-        create mlx, mlx pointer and windows,
-        register loop function hook.
-        """
+        """Init and setup mlx: create mlx, window, register loop hook."""
         self.mlx = Mlx()
         self.mlx_ptr = self.mlx.mlx_init()
         self.win_ptr = self.mlx.mlx_new_window(
             self.mlx_ptr, self.width, self.height, self.title
         )
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
+
+    def _generate_maze(self) -> Maze:
+        """Generate a Maze from current config."""
+        return Maze(
+            width=self.config.get("WIDTH"),
+            height=self.config.get("HEIGHT"),
+            entry_pos=self.config.get("ENTRY"),
+            exit_pos=self.config.get("EXIT"),
+            perfect=self.config.get("PERFECT"),
+            seed=self.config.get("SEED"),
+            output_file_name=self.config.get("OUTPUT_FILE"),
+            pattern=self.config.get("PATTERN"),
+        )
+
+    def _set_maze_state(self) -> None:
+        """Set grid, entry/exit, pattern and dimensions from current maze."""
+        self.grid = self.maze.to_grid()
+        self.grid_entry_pos = (
+            self.maze.entry_pos[0] * 3 + 1,
+            self.maze.entry_pos[1] * 3 + 1,
+        )
+        self.grid_exit_pos = (
+            self.maze.exit_pos[0] * 3 + 1,
+            self.maze.exit_pos[1] * 3 + 1,
+        )
+        self.cells_pattern = {
+            (cell.x, cell.y) for cell in self.maze.get_pattern_cells()
+        }
+        self.grid_width = len(self.grid[0])
+        self.grid_height = len(self.grid)
+
+    def _compute_minimap(self) -> None:
+        """Set minimap cell size and offsets."""
+        self.minimap_cell_size = max(
+            1,
+            min(
+                self.minimap_side // self.grid_width,
+                self.minimap_side // self.grid_height,
+            ),
+        )
+        self.minimap_offset_x = (
+            self.minimap_side - self.grid_width * self.minimap_cell_size
+        ) // 2
+        self.minimap_offset_y = (
+            self.minimap_side - self.grid_height * self.minimap_cell_size
+        ) // 2
+
+    def _init_minimap(self) -> None:
+        """Create minimap image and buffers."""
+        self.minimap_image, self.minimap_buffer = self._get_minimap()
+        self.minimap_clear_buffer = bytes(self.minimap_buffer)
+        self._minimap_np = numpy.frombuffer(
+            self.minimap_buffer, dtype=numpy.uint8
+        ).reshape(self.minimap_side, self.minimap_side, 4)
+
+    def _get_minimap(self) -> tuple[Any, Any]:
+        """Allocate a new MLX minimap image and draw grid cells into it."""
+        minimap_image: int = self.mlx.mlx_new_image(
+            self.mlx_ptr, self.minimap_side, self.minimap_side
+        )
+        minimap_buffer: memoryview
+        minimap_buffer, _bpp, minimap_line_size, _ = (
+            self.mlx.mlx_get_data_addr(minimap_image)
+        )
+        self._draw_minimap_cells(minimap_buffer, minimap_line_size)
+        return minimap_image, minimap_buffer
+
+    def _draw_minimap_cells(self, buffer: memoryview, line_size: int) -> None:
+        """Fill buffer with floor then draw one rect per grid cell."""
+        for i in range(0, buffer.nbytes, 4):
+            buffer[i:i + 4] = Color.FLOOR.value
+        for y, row in enumerate(self.grid):
+            for x, cell in enumerate(row):
+                cell_rect = Rect(
+                    x * self.minimap_cell_size + self.minimap_offset_x,
+                    y * self.minimap_cell_size + self.minimap_offset_y,
+                    self.minimap_cell_size,
+                    self.minimap_cell_size,
+                )
+                draw_rect(
+                    cell_rect,
+                    self._get_cell_color(x, y),
+                    buffer,
+                    line_size,
+                )
+
+    def _redraw_minimap(self) -> None:
+        """Redraw minimap into existing buffer and update clear_buffer."""
+        self._draw_minimap_cells(self.minimap_buffer, self.minimap_side * 4)
+        self.minimap_clear_buffer = bytes(self.minimap_buffer)
+
+    @staticmethod
+    def _darker_minimap_color(bgra: bytes) -> bytes:
+        """Return a darker version of the BGRA color."""
+        return bytes([bgra[i] * 51 // 100 for i in range(3)] + [bgra[3]])
+
+    def _get_cell_color(self, x: int, y: int) -> bytes:
+        """Return BGRA bytes for minimap cell at grid (x, y)."""
+        maze_x, maze_y = x // 3, y // 3
+        if (maze_x, maze_y) in self.cells_pattern:
+            return self._minimap_pattern_color
+        if self.grid[y][x]:
+            return self._minimap_wall_color
+        if (x, y) == self.grid_entry_pos:
+            return Color.GREEN.value
+        if (x, y) == self.grid_exit_pos:
+            return Color.RED.value
+        return Color.WHITE.value
+
+    def _spawn_camera(self) -> None:
+        """Place camera at maze entry facing an open corridor."""
+        ex, ey = self.maze.entry_pos
+        pos = Vec2(ex * 3 + 1.5, ey * 3 + 1.5)
+        direction = face_open_corridor(self.grid, pos)
+        self.camera = Camera(
+            pos=pos,
+            direction=direction,
+            fov=self.config.get("FOV"),
+            grid=self.grid,
+            mode=self.config.get("MODE"),
+            keyboard_handler=self.keyboard_handler,
+        )
 
     def _raycasting(self) -> None:
         """Cast one ray per column and draw a line for each ray."""
@@ -168,51 +247,13 @@ class Renderer:
                 numpy_buffer=self.numpy_raycasting_buffer,
             )
 
-    def _get_minimap(self) -> tuple[Any, Any]:
-        """Generate a minimap of the maze in an mlx image."""
-        minimap_image: int = self.mlx.mlx_new_image(
-            self.mlx_ptr, self.minimap_side, self.minimap_side
-        )
-        minimap_buffer: memoryview
-        minimap_buffer, _bpp, minimap_line_size, _ = (
-            self.mlx.mlx_get_data_addr(minimap_image)
-        )
-
-        for i in range(0, minimap_buffer.nbytes, 4):
-            minimap_buffer[i:i + 4] = Color.FLOOR.value
-
-        # draw rects for each cell
-        for y, row in enumerate(self.grid):
-            for x, cell in enumerate(row):
-                cell_rect = Rect(
-                    x * self.minimap_cell_size + self.minimap_offset_x,
-                    y * self.minimap_cell_size + self.minimap_offset_y,
-                    self.minimap_cell_size,
-                    self.minimap_cell_size,
-                )
-                draw_rect(
-                    cell_rect,
-                    self._get_cell_color(x, y),
-                    minimap_buffer,
-                    minimap_line_size,
-                )
-        return minimap_image, minimap_buffer
-
-    def _get_cell_color(self, x: int, y: int) -> bytes:
-        """Get cell color."""
-        maze_x, maze_y = x // 3, y // 3
-        if (maze_x, maze_y) in self.cells_pattern:
-            return Color.PATTERN.value
-        if self.grid[y][x]:
-            return Color.BLACK.value
-        elif (x, y) == self.grid_entry_pos:
-            return Color.GREEN.value
-        elif (x, y) == self.grid_exit_pos:
-            return Color.RED.value
-        return Color.WHITE.value
-
     def _render_player(self) -> None:
         """Draw the player sprite on the minimap."""
+        player_color = (
+            self._minimap_pattern_color
+            if self._minimap_wall_color_index == 0
+            else ColorPalette.WHITE.value
+        )
         render_player_sprite(
             camera_pos=(self.camera.pos.x, self.camera.pos.y),
             camera_dir=(self.camera.direction.x, self.camera.direction.y),
@@ -221,6 +262,7 @@ class Renderer:
             offset_y=self.minimap_offset_y,
             buffer=self.minimap_buffer,
             line_size=self.minimap_side * 4,
+            color=player_color,
         )
 
     def _render(self) -> None:
@@ -250,18 +292,8 @@ class Renderer:
                 :self.width // 2,
                 :3,
             ]
-            zone[:] = zone * 0.4
-
-        if self.fps:
-            put_string(
-                f"FPS: {self.fps_value:.0f}",
-                10,
-                10,
-                b"\xFF\xFF\xFF\xFF",
-                self.numpy_raycasting_buffer,
-            )
-
-        if self.chat_handler.is_open:
+            numpy.multiply(zone, 0.4, out=self.chat_bg_buffer)
+            zone[:] = self.chat_bg_buffer
             line_height = CHAR_GLYPH_H
             grey_zone_height = self.height - 20 - self.height // 2
             max_message_lines = max(0, grey_zone_height // line_height)
@@ -275,6 +307,15 @@ class Renderer:
                     color_bgra,
                     self.numpy_raycasting_buffer,
                 )
+
+        if self.fps:
+            put_string(
+                f"FPS: {self.fps_value:.0f}",
+                10,
+                10,
+                b"\xFF\xFF\xFF\xFF",
+                self.numpy_raycasting_buffer,
+            )
 
         self.mlx_raycasting_buffer[:] = self.numpy_raycasting_buffer.ravel()
 
@@ -310,11 +351,7 @@ class Renderer:
 
         # TODO: User interactions must be available,
         # at least for the following tasks:
-        # • Re-generate a new maze and display it.  NOTE: can be done from maze
         # • Show/Hide a valid shortest path from the entrance to the exit.
-        #   - re-generate minimap maybe ?
-        # • Change maze wall colours.
-        # • Optional: set specific colours to display the "42" pattern.
 
         if (
             keyboard.Key.esc in self.keyboard_handler.keys_pressed
@@ -326,12 +363,38 @@ class Renderer:
             keyboard.Key.esc in self.keyboard_handler.keys_pressed
         )
 
-    def _cmd_toggle_fps(self) -> None:
+    def _cmd_reset_maze(self) -> tuple[str, bool]:
+        """Regenerate the maze."""
+        self.maze = self._generate_maze()
+        self._set_maze_state()
+        self._compute_minimap()
+        self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
+        self._init_minimap()
+        self._spawn_camera()
+        return ("Maze reset successfully", True)
+
+    def _cmd_color(self) -> tuple[str, bool]:
+        """Cycle minimap wall/pattern through ColorPalette."""
+        self._minimap_wall_color_index = (
+            self._minimap_wall_color_index + 1
+        ) % len(self._minimap_palette)
+        self._minimap_wall_color = self._minimap_palette[
+            self._minimap_wall_color_index
+        ].value
+        self._minimap_pattern_color = self._darker_minimap_color(
+            self._minimap_wall_color
+        )
+        self._redraw_minimap()
+        return ("Changed the minimap wall color", True)
+
+    def _cmd_toggle_fps(self) -> tuple[str, bool]:
         """Toggle FPS display."""
         self.fps = not self.fps
+        return ("Successfully toggled the FPS HUD", True)
 
     def quit(self) -> None:
         """Properly exit mlx."""
+        self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
         self.mlx.mlx_destroy_window(self.mlx_ptr, self.win_ptr)
         self.mlx.mlx_destroy_image(self.mlx_ptr, self.raycasting_image)
         self.mlx.mlx_loop_exit(self.mlx_ptr)
