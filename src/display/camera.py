@@ -80,15 +80,6 @@ class Camera:
         elif keyboard.Key.left in pressed:
             self.direction.rotate(-self.rotate_speed * dt)
 
-        if keyboard.Key.up in pressed:
-            new_fov = self.fov + self.fov_change_speed * dt
-            self.fov = min(120, int(new_fov))
-            self.fov_scale = math.tan(math.radians(self.fov) / 2)
-        elif keyboard.Key.down in pressed:
-            new_fov = self.fov - self.fov_change_speed * dt
-            self.fov = max(30, int(new_fov))
-            self.fov_scale = math.tan(math.radians(self.fov) / 2)
-
         if self.keys.forward in pressed:
             new_x = self.pos.x + self.direction.x * self.move_speed * dt
             new_y = self.pos.y + self.direction.y * self.move_speed * dt

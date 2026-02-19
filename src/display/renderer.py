@@ -39,7 +39,9 @@ class Renderer:
         self.keyboard_handler = KeyboardHandler()
         self.chat_handler = ChatHandler()
         self._esc_was_pressed: bool = False
-        self.chat_handler.register_command("regen", self._cmd_reset_maze)
+        self.chat_handler.register_command(
+            "regen", self._cmd_reset_maze, "regen <algo>"
+        )
         self.chat_handler.register_command("fps", self._cmd_toggle_fps)
         self.chat_handler.register_command("color", self._cmd_color)
 
@@ -99,7 +101,7 @@ class Renderer:
         )
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
 
-    def _generate_maze(self) -> Maze:
+    def _generate_maze(self, algo: str = "backtracking") -> Maze:
         """Generate a Maze from current config."""
         return Maze(
             width=self.config.get("WIDTH"),
@@ -110,6 +112,7 @@ class Renderer:
             seed=self.config.get("SEED"),
             output_file_name=self.config.get("OUTPUT_FILE"),
             pattern=self.config.get("PATTERN"),
+            algo=algo,
         )
 
     def _set_maze_state(self) -> None:
@@ -363,17 +366,29 @@ class Renderer:
             keyboard.Key.esc in self.keyboard_handler.keys_pressed
         )
 
-    def _cmd_reset_maze(self) -> tuple[str, bool]:
+    def _cmd_reset_maze(self, args: list[str]) -> tuple[str, bool]:
         """Regenerate the maze."""
-        self.maze = self._generate_maze()
+        ALGOS = ("backtracking", "prim")
+        if not args:
+            return (
+                f"Please provide an algo: /regen <{'|'.join(ALGOS)}>.",
+                False,
+            )
+        algo = args[0].lower().strip()
+        if algo not in ALGOS:
+            return (
+                f"Usage: /regen <{'|'.join(ALGOS)}>.",
+                False,
+            )
+        self.maze = self._generate_maze(algo=algo)
         self._set_maze_state()
         self._compute_minimap()
         self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
         self._init_minimap()
         self._spawn_camera()
-        return ("Maze reset successfully", True)
+        return (f"Maze regenerated with {algo}", True)
 
-    def _cmd_color(self) -> tuple[str, bool]:
+    def _cmd_color(self, args: list[str]) -> tuple[str, bool]:
         """Cycle minimap wall/pattern through ColorPalette."""
         self._minimap_wall_color_index = (
             self._minimap_wall_color_index + 1
@@ -387,7 +402,7 @@ class Renderer:
         self._redraw_minimap()
         return ("Changed the minimap wall color", True)
 
-    def _cmd_toggle_fps(self) -> tuple[str, bool]:
+    def _cmd_toggle_fps(self, args: list[str]) -> tuple[str, bool]:
         """Toggle FPS display."""
         self.fps = not self.fps
         return ("Successfully toggled the FPS HUD", True)

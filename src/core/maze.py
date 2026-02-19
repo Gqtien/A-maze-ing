@@ -76,6 +76,7 @@ class Maze:
         seed: int | None = None,
         output_file_name: str | None = None,
         pattern: Pattern | None = None,
+        algo: str | None = None,
     ) -> None:
         """Maze constructor."""
         self.width: int = width if width else 800
@@ -88,6 +89,7 @@ class Maze:
         self.seed: int = seed if seed else random.randint(0, 1_000_000)
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
+        self.algo: str = algo.lower() if algo else "backtracking"
 
         self._generate()
 
@@ -132,7 +134,11 @@ class Maze:
                 self._maze[y].append(Cell(x, y, 0xF))
 
         rng = random.Random(self.seed)
-        self._backtracking(rng)
+        match self.algo:
+            case "prim":
+                self._prim(rng)
+            case _:
+                self._backtracking(rng)
 
     def get_pattern_cells(self) -> set[Cell]:
         """Return cells to mark the 42 in the center."""
@@ -191,6 +197,27 @@ class Maze:
                 stack.append(neighbor)
             else:
                 stack.pop()
+
+    def _prim(self, rng: random.Random) -> None:
+        """Create paths using Prim's algorithm."""
+        in_maze: set[Cell] = set(self.get_pattern_cells())
+        start: Cell = self.get_cell(*self.entry_pos)
+        in_maze.add(start)
+
+        frontier: list[tuple[Cell, Cell]] = []
+        for neighbor in self.get_neighbors(start):
+            if neighbor not in in_maze:
+                frontier.append((start, neighbor))
+
+        while frontier:
+            cell_in, cell_out = frontier.pop(rng.randint(0, len(frontier) - 1))
+            if cell_out in in_maze:
+                continue
+            self._open_wall_between(cell_in, cell_out)
+            in_maze.add(cell_out)
+            for neighbor in self.get_neighbors(cell_out):
+                if neighbor not in in_maze:
+                    frontier.append((cell_out, neighbor))
 
     def _open_wall_between(self, cell1: Cell, cell2: Cell) -> None:
         """Open path between two adjacent cells."""
