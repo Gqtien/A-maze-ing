@@ -3,7 +3,7 @@ VENV_DIR	?= .venv
 BIN			:= $(VENV_DIR)/bin
 PIP			:= $(BIN)/pip
 
-CMDS := usage install run debug clean lint lint-strict profile
+CMDS := usage install run compile profile clean lint lint-strict
 ARGS := $(filter-out $(CMDS),$(MAKECMDGOALS))
 
 export SCREEN_WIDTH := $(shell xrandr --current | grep '*' | uniq | awk '{print $1}' | cut -d 'x' -f1)
@@ -17,24 +17,29 @@ usage:
 		echo "  - $(cmd) $(if $(filter run debug,$(cmd)),<config_file>)";)
 
 install:
-	$(PYTHON) -m venv $(VENV_DIR)
-	$(PIP) install --upgrade pip
-	$(PIP) install flake8 mypy
+	@$(PYTHON) -m venv $(VENV_DIR)
+	@$(PIP) install --upgrade pip
+	@$(PIP) install -r requirements.txt
+	@$(PIP) install flake8 mypy
+	@echo "Environment created."
+	@echo "Run: source $(VENV_DIR)/bin/activate"
+	@echo "Then: make run default_config.txt"
 
 run:
 	@$(PYTHON) src/a_maze_ing.py $(ARGS) || true
 
+compile:
+	@$(PYTHON) -m venv $(VENV_DIR)
+	@$(PIP) install -U build
+	$(BIN)/$(PYTHON) -m build
+
 profile:
 	@$(PYTHON) -m cProfile src/a_maze_ing.py $(ARGS) || true
-
-debug:
-	@$(PYTHON) src/a_maze_ing.py --debug $(ARGS) || true
 
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
 	@find . -type d -name ".mypy_cache" -exec rm -rf {} +
 	@rm -f out.txt
-
 
 lint:
 	flake8 src || true
