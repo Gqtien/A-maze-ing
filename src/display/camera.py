@@ -35,7 +35,7 @@ class Camera:
         self.grid_height: int = len(grid) if grid else 0
         self.mode: Mode = mode if mode is not None else Mode("wasd")
         self.keys = self.mode.keys()
-        self.keyboard_handler: KeyboardHandler()
+        self.keyboard_handler = KeyboardHandler()
 
         # Movement in units per second (independant from frame rate)
         self.move_speed: float = 2.5
