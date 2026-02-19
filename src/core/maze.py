@@ -85,8 +85,8 @@ class Maze:
         self.exit_pos: tuple[int, int] = (
             exit_pos if exit_pos else (self.width - 1, self.height - 1)
         )
-        self.perfect: bool = perfect if perfect else True
-        self.seed: int = seed if seed else random.randint(0, 1_000_000)
+        self.perfect: bool = True if perfect is None else bool(perfect)
+        self.seed: int = seed if seed is not None else random.randint(0, 1_000_000)
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
         self.algo: str = algo.lower() if algo else "backtracking"
@@ -129,16 +129,21 @@ class Maze:
         """Run generation and returns the maze."""
         # NOTE: init maze full of walls (0xF)
         for y in range(self.height):
-            self._maze.append([])
+            row: list[Cell] = []
             for x in range(self.width):
-                self._maze[y].append(Cell(x, y, 0xF))
+                row.append(Cell(x, y, 0xF))
+            self._maze.append(row)
 
         rng = random.Random(self.seed)
+
         match self.algo:
             case "prim":
                 self._prim(rng)
             case _:
                 self._backtracking(rng)
+
+        if not self.perfect:
+            self._add_exit_loop(rng)
 
     def get_pattern_cells(self) -> set[Cell]:
         """Return cells to mark the 42 in the center."""
@@ -177,7 +182,7 @@ class Maze:
         return cells
 
     def _backtracking(self, rng: random.Random) -> None:
-        """Create paths using iterative backtracking."""
+        """Perfect maze via iterative backtracking."""
         stack: list[Cell] = []
         visited: set[Cell] = self.get_pattern_cells()
         start: Cell = self.get_cell(*self.entry_pos)
@@ -199,7 +204,7 @@ class Maze:
                 stack.pop()
 
     def _prim(self, rng: random.Random) -> None:
-        """Create paths using Prim's algorithm."""
+        """Perfect maze via Prim's algorithm."""
         in_maze: set[Cell] = set(self.get_pattern_cells())
         start: Cell = self.get_cell(*self.entry_pos)
         in_maze.add(start)
@@ -219,6 +224,49 @@ class Maze:
                 if neighbor not in in_maze:
                     frontier.append((cell_out, neighbor))
 
+    def _degree(self, c: Cell) -> int:
+        """Number of open sides."""
+        return int(not c.north()) + int(not c.east()) + int(not c.south()) + int(not c.west())
+
+    def _is_open_between(self, a: Cell, b: Cell) -> bool:
+        """True if there is already an opening between adjacent cells a and b."""
+        dx, dy = b.x - a.x, b.y - a.y
+        match dx, dy:
+            case 1, 0:
+                return (a.wall & Wall.EAST.value) == 0 and (b.wall & Wall.WEST.value) == 0
+            case -1, 0:
+                return (a.wall & Wall.WEST.value) == 0 and (b.wall & Wall.EAST.value) == 0
+            case 0, 1:
+                return (a.wall & Wall.SOUTH.value) == 0 and (b.wall & Wall.NORTH.value) == 0
+            case 0, -1:
+                return (a.wall & Wall.NORTH.value) == 0 and (b.wall & Wall.SOUTH.value) == 0
+        return False
+
+    def _add_exit_loop(self, rng: random.Random) -> None:
+        """Add one shortcut from the exit."""
+        exit_cell = self.get_cell(*self.exit_pos)
+        blocked = self.get_pattern_cells()
+        cur, prev = exit_cell, None
+
+        for _ in range(self.width * self.height):
+            neighbors = [n for n in self.get_neighbors(cur) if n not in blocked and n is not prev]
+            rng.shuffle(neighbors)
+            if not neighbors:
+                break
+            nxt = neighbors[0]
+            if not self._is_open_between(cur, nxt):
+                self._open_wall_between(cur, nxt)
+            prev, cur = cur, nxt
+            if self._degree(cur) >= 2:
+                return
+
+        candidates = [
+            n for n in self.get_neighbors(exit_cell)
+            if n not in blocked and not self._is_open_between(exit_cell, n)
+        ]
+        if candidates:
+            self._open_wall_between(exit_cell, rng.choice(candidates))
+    
     def _open_wall_between(self, cell1: Cell, cell2: Cell) -> None:
         """Open path between two adjacent cells."""
         dx = cell2.x - cell1.x
@@ -256,49 +304,64 @@ class Maze:
         return self._maze
 
     def to_grid(self) -> list[list[bool]]:
-        """Convert maze to a 3x-per-cell bool grid."""
-        grid: list[list[bool]] = []
-        for y, line in enumerate(self.get_maze()):
-            # upper 3x3
-            grid.append([])
-            for cell in line:
-                grid[y * 3].append(
-                    cell.north() or cell.west()
-                    or self.get_cell(cell.x - 1, cell.y).ne()
-                    or self.get_cell(cell.x, cell.y - 1).sw()
-                )
-                grid[y * 3].append(cell.north())
-                grid[y * 3].append(
-                    cell.north() or cell.east()
-                    or self.get_cell(cell.x + 1, cell.y).nw()
-                    or self.get_cell(cell.x, cell.y - 1).se()
-                )
-            # middle 3x3
-            grid.append([])
-            for cell in line:
-                grid[y * 3 + 1].append(cell.west())
-                grid[y * 3 + 1].append(cell.is_full())
-                grid[y * 3 + 1].append(cell.east())
-            # lower 3x3
-            grid.append([])
-            for cell in line:
-                grid[y * 3 + 2].append(
-                    cell.south() or cell.west()
-                    or self.get_cell(cell.x - 1, cell.y).se()
-                    or self.get_cell(cell.x, cell.y + 1).nw()
-                )
-                grid[y * 3 + 2].append(cell.south())
-                grid[y * 3 + 2].append(
-                    cell.south() or cell.east()
-                    or self.get_cell(cell.x + 1, cell.y).sw()
-                    or self.get_cell(cell.x, cell.y + 1).ne()
-                )
+        """Convert maze to a bool grid."""
+        gw = self.width * 2 + 1
+        gh = self.height * 2 + 1
+
+        # start full of walls
+        grid: list[list[bool]] = [[True] * gw for _ in range(gh)]
+
+        for y in range(self.height):
+            for x in range(self.width):
+                cell = self.get_cell(x, y)
+
+                cx = 2 * x + 1
+                cy = 2 * y + 1
+
+                # cell center is always a path
+                grid[cy][cx] = False
+
+                # open passages according to missing walls
+                if not cell.north():
+                    grid[cy - 1][cx] = False
+                if not cell.south():
+                    grid[cy + 1][cx] = False
+                if not cell.west():
+                    grid[cy][cx - 1] = False
+                if not cell.east():
+                    grid[cy][cx + 1] = False
+
         return grid
+
+    def pattern_core_to_grid(self) -> set[tuple[int, int]]:
+        """Return grid coords of pattern cells and links only (no outline)."""
+        pattern_cells = self.get_pattern_cells()
+        out: set[tuple[int, int]] = set()
+        for c in pattern_cells:
+            out.add((2 * c.x + 1, 2 * c.y + 1))
+            for n in self.get_neighbors(c):
+                if n in pattern_cells:
+                    out.add((c.x + n.x + 1, c.y + n.y + 1))
+        return out
+
+    def pattern_to_grid(self) -> set[tuple[int, int]]:
+        """Return grid coords of pattern cells, links, and 1 cell around them."""
+        out = self.pattern_core_to_grid()
+        gw, gh = 2 * self.width + 1, 2 * self.height + 1
+        for (gx, gy) in list(out):
+            for dgx, dgy in (
+                (1, 0), (-1, 0), (0, 1), (0, -1),
+                (1, 1), (-1, 1), (1, -1), (-1, -1),
+            ):
+                ngx, ngy = gx + dgx, gy + dgy
+                if 0 <= ngx < gw and 0 <= ngy < gh:
+                    out.add((ngx, ngy))
+        return out
 
     def save_to_file(self, filename: str) -> None:
         """Save the hex representation of the maze to file."""
         try:
-            with open(filename, 'w') as file:
+            with open(filename, "w") as file:
                 file.write(repr(self))
         except Exception as e:
             print(f"Error while trying to save maze to {filename}: {e}")

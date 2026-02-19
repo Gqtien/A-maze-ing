@@ -117,7 +117,7 @@ def put_string(
     )
 
 
-def render_player_sprite(
+def draw_player_sprite(
     camera_pos: tuple[float, float],
     camera_dir: tuple[float, float],
     cell_size: int,
@@ -128,28 +128,31 @@ def render_player_sprite(
     offset_y: int = 0,
 ) -> None:
     """Draw the player sprite on the minimap."""
-    player_pixel_x = int(camera_pos[0] * cell_size) + offset_x
-    player_pixel_y = int(camera_pos[1] * cell_size) + offset_y
-
+    center_px = (
+        round(camera_pos[0] * cell_size) + offset_x,
+        round(camera_pos[1] * cell_size) + offset_y,
+    )
     angle = math.atan2(camera_dir[1], camera_dir[0]) + math.pi / 2
     cos_a = math.cos(angle)
     sin_a = math.sin(angle)
-
-    center_x = (SPRITE_W - 1) / 2.0
-    center_y = (SPRITE_H - 1) / 2.0
-
     half = max(SPRITE_W, SPRITE_H) + 1
+    sprite_cx = (SPRITE_W - 1) / 2.0
+    sprite_cy = (SPRITE_H - 1) / 2.0
+
     for dest_y in range(-half, half + 1):
         for dest_x in range(-half, half + 1):
-            sx = center_x + dest_x * cos_a + dest_y * sin_a
-            sy = center_y - dest_x * sin_a + dest_y * cos_a
-            ix, iy = int(sx), int(sy)
-            if 0 <= ix < SPRITE_W and 0 <= iy < SPRITE_H:
-                if SPRITES["PLAYER"][iy][ix] == "P":
-                    put_pixel(
-                        player_pixel_x + dest_x,
-                        player_pixel_y + dest_y,
-                        color,
-                        buffer,
-                        line_size,
-                    )
+            sx = sprite_cx + dest_x * cos_a + dest_y * sin_a
+            sy = sprite_cy - dest_x * sin_a + dest_y * cos_a
+            ix, iy = int(round(sx)), int(round(sy))
+            if (
+                0 <= ix < SPRITE_W
+                and 0 <= iy < SPRITE_H
+                and SPRITES["PLAYER"][iy][ix] == "P"
+            ):
+                put_pixel(
+                    center_px[0] + dest_x,
+                    center_px[1] + dest_y,
+                    color,
+                    buffer,
+                    line_size,
+                )

@@ -14,7 +14,7 @@ from display.drawing import (
     draw_horizontal_line,
     draw_rect,
     put_string,
-    render_player_sprite,
+    draw_player_sprite,
 )
 
 
@@ -52,6 +52,9 @@ class Renderer:
         ].value
         self._minimap_pattern_color: bytes = self._darker_minimap_color(
             self._minimap_wall_color
+        )
+        self._minimap_pattern_core_color: bytes = self._lighter_minimap_color(
+            self._minimap_pattern_color
         )
 
         self._init_mlx()
@@ -119,18 +122,20 @@ class Renderer:
         """Set grid, entry/exit, pattern and dimensions from current maze."""
         self.grid = self.maze.to_grid()
         self.grid_entry_pos = (
-            self.maze.entry_pos[0] * 3 + 1,
-            self.maze.entry_pos[1] * 3 + 1,
+            self.maze.entry_pos[0] * 2 + 1,
+            self.maze.entry_pos[1] * 2 + 1,
         )
         self.grid_exit_pos = (
-            self.maze.exit_pos[0] * 3 + 1,
-            self.maze.exit_pos[1] * 3 + 1,
+            self.maze.exit_pos[0] * 2 + 1,
+            self.maze.exit_pos[1] * 2 + 1,
         )
         self.cells_pattern = {
             (cell.x, cell.y) for cell in self.maze.get_pattern_cells()
         }
         self.grid_width = len(self.grid[0])
         self.grid_height = len(self.grid)
+        self.grid_pattern_cells = self.maze.pattern_to_grid()
+        self.grid_pattern_core = self.maze.pattern_core_to_grid()
 
     def _compute_minimap(self) -> None:
         """Set minimap cell size and offsets."""
@@ -193,14 +198,26 @@ class Renderer:
         self.minimap_clear_buffer = bytes(self.minimap_buffer)
 
     @staticmethod
-    def _darker_minimap_color(bgra: bytes) -> bytes:
-        """Return a darker version of the BGRA color."""
-        return bytes([bgra[i] * 51 // 100 for i in range(3)] + [bgra[3]])
+    def _darker_minimap_color(bgra: bytes, percentage: int = 50) -> bytes:
+        """Return a darker version of the color."""
+        bgra = list(bgra)
+        for i in range(3):
+            bgra[i] = bgra[i] * (100 - percentage) // 100
+        return bytes(bgra)
+
+    @staticmethod
+    def _lighter_minimap_color(bgra: bytes, percentage: int = 85) -> bytes:
+        """Return a lighter version of the color."""
+        bgra = list(bgra)
+        for i in range(3):
+            bgra[i] = bgra[i] + (255 - bgra[i]) * (100 - percentage) // 100
+        return bytes(bgra)
 
     def _get_cell_color(self, x: int, y: int) -> bytes:
         """Return BGRA bytes for minimap cell at grid (x, y)."""
-        maze_x, maze_y = x // 3, y // 3
-        if (maze_x, maze_y) in self.cells_pattern:
+        if (x, y) in self.grid_pattern_core:
+            return self._minimap_pattern_core_color
+        if (x, y) in self.grid_pattern_cells:
             return self._minimap_pattern_color
         if self.grid[y][x]:
             return self._minimap_wall_color
@@ -213,7 +230,7 @@ class Renderer:
     def _spawn_camera(self) -> None:
         """Place camera at maze entry facing an open corridor."""
         ex, ey = self.maze.entry_pos
-        pos = Vec2(ex * 3 + 1.5, ey * 3 + 1.5)
+        pos = Vec2(ex * 2 + 1.5, ey * 2 + 1.5)
         direction = face_open_corridor(self.grid, pos)
         self.camera = Camera(
             pos=pos,
@@ -239,6 +256,7 @@ class Renderer:
                 entry_pos=self.grid_entry_pos,
                 exit_pos=self.grid_exit_pos,
             )
+            perp_wall_dist = max(perp_wall_dist, 1e-6)
             line_height: int = int(self.height // perp_wall_dist)
             line_y: int = self.height // 2 - line_height // 2
             draw_horizontal_line(
@@ -257,7 +275,7 @@ class Renderer:
             if self._minimap_wall_color_index == 0
             else ColorPalette.WHITE.value
         )
-        render_player_sprite(
+        draw_player_sprite(
             camera_pos=(self.camera.pos.x, self.camera.pos.y),
             camera_dir=(self.camera.direction.x, self.camera.direction.y),
             cell_size=self.minimap_cell_size,
@@ -398,6 +416,9 @@ class Renderer:
         ].value
         self._minimap_pattern_color = self._darker_minimap_color(
             self._minimap_wall_color
+        )
+        self._minimap_pattern_core_color = self._lighter_minimap_color(
+            self._minimap_pattern_color
         )
         self._redraw_minimap()
         return ("Changed the minimap wall color", True)
