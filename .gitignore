@@ -212,6 +212,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 config.txt
-pyproject.toml
 .zed
 out.txt
+mazegen.py

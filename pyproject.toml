@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mazegen"
+version = "1.0.0"
+description = "Maze generator module."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "gviola-l" },
+  { name = "mphippen" }
+]
+
+[tool.setuptools]
+py-modules = ["mazegen"]

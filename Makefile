@@ -31,7 +31,9 @@ run:
 compile:
 	@$(PYTHON) -m venv $(VENV_DIR)
 	@$(PIP) install -U build
+	@$(MAZEGEN)
 	$(BIN)/$(PYTHON) -m build
+	@rm -f mazegen.py
 
 profile:
 	@$(PYTHON) -m cProfile src/a_maze_ing.py $(ARGS) || true
@@ -39,6 +41,9 @@ profile:
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
 	@find . -type d -name ".mypy_cache" -exec rm -rf {} +
+	@rm -rf $(VENV_DIR)
+	@rm -rf dist
+	@rm -rf mazegen.egg-info
 	@rm -f out.txt
 
 lint:
@@ -51,5 +56,9 @@ lint-strict:
 
 $(ARGS):
 	@:
+
+define MAZEGEN
+cat src/assets/digits.py > mazegen.py && printf '\n' >> mazegen.py && printf 'from typing import NamedTuple\n' >> mazegen.py && awk '/^class Pattern/ {flag=1} flag { if ($$0 ~ /^class [A-Za-z_]/ && $$0 !~ /^class Pattern/) exit; print }' src/core/config.py >> mazegen.py && printf '\n' >> mazegen.py && sed -e '/from src\.assets import DIGITS/d' -e '/from src\.core\.config import Pattern/d' src/core/maze.py >> mazegen.py && printf '\n\n__all__ = [\"Maze\"]\n' >> mazegen.py
+endef
 
 .PHONY: $(CMDS) $(ARGS)
