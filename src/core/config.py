@@ -17,18 +17,16 @@ class Mode:
         """Parse value: exactly 4 letters for each direction."""
         raw = value.strip()
         if len(raw) != 4:
-            print(
-                f"MODE must be exactly 4 characters (forward,left,back,right),"
-                f" got {len(raw)} character{'' if len(raw) == 1 else 's'} "
-                f"in {value!r}"
+            raise ValueError(
+                f"'MODE' must be exactly 4 characters "
+                f"(forward,left,back,right), got {len(raw)} "
+                f"character{'' if len(raw) == 1 else 's'} in {value!r}"
             )
-            exit(1)
         if not all(c.isalpha() for c in raw):
-            print(
-                f"MODE must be 4 letters only (no digits, spaces or symbols), "
-                f"got {value!r}"
+            raise ValueError(
+                f"'MODE' must be 4 letters only "
+                f"(no digits, spaces or symbols), got {value!r}"
             )
-            exit(1)
         keys = [raw[0], raw[1], raw[2], raw[3]]
         self.bindings = Mode.KeyBindings(
             forward=keys[0],
@@ -53,8 +51,9 @@ class Pattern:
         """Parse value: exactly 2 digits."""
         raw = value.strip()
         if len(raw) != 2:
-            print(f"PATTERN must be exactly 2 digits, got {value!r}")
-            exit(1)
+            raise ValueError(
+                f"'PATTERN' must be exactly 2 digits, got {value!r}"
+            )
         numbers = [
             "ZERO", "ONE", "TWO", "THREE", "FOUR",
             "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
@@ -65,8 +64,7 @@ class Pattern:
             if first not in range(10) or second not in range(10):
                 raise ValueError
         except ValueError:
-            print(f"PATTERN digits must be 0-9, got {value!r}")
-            exit(1)
+            raise ValueError(f"'PATTERN' digits must be 0-9, got {value!r}")
         self._digits = Pattern.PatternDigits(numbers[first], numbers[second])
 
     def digits(self) -> "Pattern.PatternDigits":
@@ -170,7 +168,7 @@ def validate_bounds(config: Dict[str, Any]) -> None:
 
 def parse_config(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Config file not found at {path}")
+        raise FileNotFoundError(f"Config file not found: {path}")
     if os.path.isdir(path):
         raise IsADirectoryError(f"Config path is a directory, "
                                 f"not a file: {path}")
@@ -223,6 +221,11 @@ def parse_config(path: str) -> Dict[str, Any]:
                             f"Value too low for {key!r}: must be >= 1, "
                             f"got {value!r}"
                         )
+                    if key in ("WIN_W", "WIN_H") and casted_value < 4:
+                        raise ValueError(
+                            f"Value too low for {key!r}: must be >= 4 "
+                            f"(minimap needs non-zero size), got {value!r}"
+                        )
 
                 config[key] = casted_value
                 validate_bounds(config)
@@ -231,7 +234,7 @@ def parse_config(path: str) -> Dict[str, Any]:
             f"Cannot read config file (permission denied): {path}"
         )
     except OSError as e:
-        raise OSError(f"Cannot open config file: {path}") from e
+        raise OSError(f"Cannot read config file: {path}") from e
     except UnicodeDecodeError as e:
         raise ValueError(
             f"Config file is not valid UTF-8: {path}"

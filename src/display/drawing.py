@@ -90,7 +90,6 @@ def put_string(
     y: int,
     argb: bytes,
     numpy_buffer: numpy.ndarray,
-    line_size: int | None = None,
 ) -> None:
     """Draw a string."""
     if not string:

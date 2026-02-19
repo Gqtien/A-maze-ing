@@ -79,17 +79,19 @@ class Maze:
         algo: str | None = None,
     ) -> None:
         """Maze constructor."""
-        self.width: int = width if width else 800
-        self.height: int = height if height else 600
-        self.entry_pos: tuple[int, int] = entry_pos if entry_pos else (0, 0)
-        self.exit_pos: tuple[int, int] = (
-            exit_pos if exit_pos else (self.width - 1, self.height - 1)
-        )
+        self.width: int = width
+        self.height: int = height
+        self.entry_pos: tuple[int, int] = entry_pos
+        self.exit_pos: tuple[int, int] = exit_pos
         self.perfect: bool = True if perfect is None else bool(perfect)
-        self.seed: int = seed if seed is not None else random.randint(0, 1_000_000)
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
-        self.algo: str = algo.lower() if algo else "backtracking"
+        self.algo: str = (algo or "backtracking").lower()
+        self.seed: int = (
+            seed
+            if seed is not None
+            else random.randint(0, 1_000_000)
+        )
 
         self._generate()
 
@@ -226,20 +228,39 @@ class Maze:
 
     def _degree(self, c: Cell) -> int:
         """Number of open sides."""
-        return int(not c.north()) + int(not c.east()) + int(not c.south()) + int(not c.west())
+        return (
+            int(not c.north())
+            + int(not c.east())
+            + int(not c.south())
+            + int(not c.west())
+        )
 
     def _is_open_between(self, a: Cell, b: Cell) -> bool:
-        """True if there is already an opening between adjacent cells a and b."""
+        """
+            True if there is already an opening between adjacent cells a and b.
+        """
         dx, dy = b.x - a.x, b.y - a.y
         match dx, dy:
             case 1, 0:
-                return (a.wall & Wall.EAST.value) == 0 and (b.wall & Wall.WEST.value) == 0
+                return (
+                    (a.wall & Wall.EAST.value) == 0
+                    and (b.wall & Wall.WEST.value) == 0
+                )
             case -1, 0:
-                return (a.wall & Wall.WEST.value) == 0 and (b.wall & Wall.EAST.value) == 0
+                return (
+                    (a.wall & Wall.WEST.value) == 0
+                    and (b.wall & Wall.EAST.value) == 0
+                )
             case 0, 1:
-                return (a.wall & Wall.SOUTH.value) == 0 and (b.wall & Wall.NORTH.value) == 0
+                return (
+                    (a.wall & Wall.SOUTH.value) == 0
+                    and (b.wall & Wall.NORTH.value) == 0
+                )
             case 0, -1:
-                return (a.wall & Wall.NORTH.value) == 0 and (b.wall & Wall.SOUTH.value) == 0
+                return (
+                    (a.wall & Wall.NORTH.value) == 0
+                    and (b.wall & Wall.SOUTH.value) == 0
+                )
         return False
 
     def _add_exit_loop(self, rng: random.Random) -> None:
@@ -249,7 +270,10 @@ class Maze:
         cur, prev = exit_cell, None
 
         for _ in range(self.width * self.height):
-            neighbors = [n for n in self.get_neighbors(cur) if n not in blocked and n is not prev]
+            neighbors = [
+                n for n in self.get_neighbors(cur)
+                if n not in blocked and n != prev
+            ]
             rng.shuffle(neighbors)
             if not neighbors:
                 break
@@ -266,7 +290,7 @@ class Maze:
         ]
         if candidates:
             self._open_wall_between(exit_cell, rng.choice(candidates))
-    
+
     def _open_wall_between(self, cell1: Cell, cell2: Cell) -> None:
         """Open path between two adjacent cells."""
         dx = cell2.x - cell1.x
@@ -345,7 +369,7 @@ class Maze:
         return out
 
     def pattern_to_grid(self) -> set[tuple[int, int]]:
-        """Return grid coords of pattern cells, links, and 1 cell around them."""
+        """Return grid coords of pattern cells, links, and 1 cell border."""
         out = self.pattern_core_to_grid()
         gw, gh = 2 * self.width + 1, 2 * self.height + 1
         for (gx, gy) in list(out):

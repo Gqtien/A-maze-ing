@@ -78,18 +78,18 @@ class Renderer:
 
         # precomputed chat background color buffer
         self.chat_bg_buffer: numpy.ndarray = numpy.empty(
-            (self.height // 2, self.width // 2, 3), dtype=numpy.float32
+            (self.height - self.height // 2, self.width // 2, 3),
+            dtype=numpy.float32,
         )
 
         # delta time and fps
         self.last_frame_time: int = time.perf_counter_ns()
-        if self.fps:
-            self.fps_value: float = 0.0
-            self.fps_last_update_ns: int = time.perf_counter_ns()
-            self.fps_frame_count: int = 0
+        self.fps_value: float = 0.0
+        self.fps_last_update_ns: int = time.perf_counter_ns()
+        self.fps_frame_count: int = 0
 
         # minimap
-        self.minimap_side: int = self.width // 4
+        self.minimap_side: int = max(1, self.width // 4)
         self._compute_minimap()
         self._init_minimap()
 
@@ -107,11 +107,11 @@ class Renderer:
     def _generate_maze(self, algo: str = "backtracking") -> Maze:
         """Generate a Maze from current config."""
         return Maze(
-            width=self.config.get("WIDTH"),
-            height=self.config.get("HEIGHT"),
-            entry_pos=self.config.get("ENTRY"),
-            exit_pos=self.config.get("EXIT"),
-            perfect=self.config.get("PERFECT"),
+            width=self.config.get("WIDTH", 25),
+            height=self.config.get("HEIGHT", 25),
+            entry_pos=self.config.get("ENTRY", (0, 0)),
+            exit_pos=self.config.get("EXIT", (24, 24)),
+            perfect=self.config.get("PERFECT", True),
             seed=self.config.get("SEED"),
             output_file_name=self.config.get("OUTPUT_FILE"),
             pattern=self.config.get("PATTERN"),
@@ -235,10 +235,9 @@ class Renderer:
         self.camera = Camera(
             pos=pos,
             direction=direction,
-            fov=self.config.get("FOV"),
+            fov=self.config.get("FOV", 80),
             grid=self.grid,
             mode=self.config.get("MODE"),
-            keyboard_handler=self.keyboard_handler,
         )
 
     def _raycasting(self) -> None:
@@ -347,7 +346,10 @@ class Renderer:
     def run(self) -> None:
         """Enter MLX event loop until exit or interrupt."""
 
-        signal.signal(signal.SIGINT, self.mlx.mlx_loop_exit(self.mlx_ptr))
+        signal.signal(
+            signal.SIGINT,
+            lambda signum, frame: self.mlx.mlx_loop_exit(self.mlx_ptr),
+        )
         self.mlx.mlx_loop(self.mlx_ptr)
 
     def loop(self, _: Any) -> None:
@@ -356,13 +358,12 @@ class Renderer:
         dt = now - self.last_frame_time
         self.last_frame_time = now
 
-        if self.fps:
-            self.fps_frame_count += 1
-            elapsed_ns = now - self.fps_last_update_ns
-            if elapsed_ns >= 1_000_000_000:
-                self.fps_value = self.fps_frame_count * 1e9 / elapsed_ns
-                self.fps_frame_count = 0
-                self.fps_last_update_ns = now
+        self.fps_frame_count += 1
+        elapsed_ns = now - self.fps_last_update_ns
+        if elapsed_ns >= 1_000_000_000:
+            self.fps_value = self.fps_frame_count * 1e9 / elapsed_ns
+            self.fps_frame_count = 0
+            self.fps_last_update_ns = now
 
         chat_was_open = self.chat_handler.is_open
         self.chat_handler.update()
