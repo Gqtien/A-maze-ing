@@ -1,7 +1,7 @@
 import random
 from enum import Enum
-from src.assets import DIGITS
-from src.core.config import Pattern
+from assets import DIGITS
+from core.config import Pattern
 
 
 class Wall(Enum):
