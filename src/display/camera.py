@@ -3,7 +3,6 @@ from utils import Vec2, Rect
 from input import KeyboardHandler, MouseHandler
 from pynput import keyboard
 from core import Mode
-import time
 
 
 def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
@@ -110,4 +109,3 @@ class Camera:
             size // 2,
             size // 2
         )
-        

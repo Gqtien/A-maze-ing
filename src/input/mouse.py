@@ -45,6 +45,9 @@ class MouseHandler:
 
             self.mouse.position = (self.center_x, self.center_y)
 
+    def peek_delta(self) -> tuple[int, int]:
+        return (self.delta_x, self.delta_y)
+
     def consume_delta(self) -> tuple[int, int]:
         dx = self.delta_x
         dy = self.delta_y

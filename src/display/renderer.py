@@ -1,7 +1,6 @@
 from functools import lru_cache
 import signal
 import time
-from core.maze import Wall
 import numpy
 import numpy.typing as npt
 from typing import Any
@@ -19,7 +18,7 @@ from display.drawing import (
     put_string,
     draw_player_sprite,
 )
-from display.pathfinding import Pathfinding
+from display.playback import Playback
 import threading
 
 
@@ -50,10 +49,15 @@ class Renderer:
         self.chat_handler.register_command(
             "regen", self._cmd_reset_maze, "regen <algo>"
         )
-        self.chat_handler.register_command("fps", self._cmd_toggle_fps)
-        self.chat_handler.register_command("color", self._cmd_color)
-        self.chat_handler.register_command("mouse", self._cmd_toggle_mouse)
         self.chat_handler.register_command("solution", self._cmd_toggle_path)
+        self.chat_handler.register_command(
+            "play",
+            self._cmd_play_solution,
+            "play <speed=2.5>",
+        )
+        self.chat_handler.register_command("mouse", self._cmd_toggle_mouse)
+        self.chat_handler.register_command("color", self._cmd_color)
+        self.chat_handler.register_command("fps", self._cmd_toggle_fps)
 
         self.wall_palette: list[ColorPalette] = list(ColorPalette)
         self.wall_color_index: int = 0
@@ -103,14 +107,7 @@ class Renderer:
         self._init_minimap()
 
         self._spawn_camera()
-        
-        self.pathfinding = Pathfinding(
-            self.camera,
-            self.grid,
-            self.grid_solution_cells,
-            config.get("MODE")
-        )
-        self.chat_handler.register_command("play", self._cmd_play_solution)
+        self._init_playback()
 
     def _init_mlx(self) -> None:
         """Init and setup mlx: create mlx, window, register loop hook."""
@@ -263,6 +260,10 @@ class Renderer:
             mode=self.config.get("MODE"),
         )
 
+    def _init_playback(self) -> None:
+        """Initialize the playback."""
+        self.playback = Playback(self.camera, self.grid_solution_cells)
+
     def _raycasting(self) -> None:
         """Cast one ray per column and draw a line for each ray."""
         for x in range(self.width):
@@ -316,8 +317,8 @@ class Renderer:
         cast one ray per column,
         put raycasting and minimap images to window.
         """
-        # TODO: The visual should clearly show solution path.
 
+        # huge performance loss compared to numpy.fill
         self.numpy_raycasting_buffer[len(self.numpy_raycasting_buffer)//2:] = (
             list(self.pattern_color)
         )
@@ -397,6 +398,21 @@ class Renderer:
 
         chat_was_open = self.chat_handler.is_open
         self.chat_handler.update()
+        if self.playback.is_playing:
+            keys = self.keyboard_handler.keys_pressed
+            move_keys = (
+                self.camera.keys.forward,
+                self.camera.keys.back,
+                self.camera.keys.left,
+                self.camera.keys.right,
+                keyboard.Key.left,
+                keyboard.Key.right,
+            )
+            if (
+                any(k in keys for k in move_keys)
+                or self.mouse_handler.peek_delta() != (0, 0)
+            ):
+                self.playback.stop()
         if not self.chat_handler.is_open:
             self.camera.move(dt)
         self._render()
@@ -425,12 +441,14 @@ class Renderer:
                 f"Usage: /regen <{'|'.join(ALGOS)}>.",
                 False,
             )
+        self.playback.stop()
         self.maze = self._generate_maze(algo=algo)
         self._set_maze_state()
         self._compute_minimap()
         self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
         self._init_minimap()
         self._spawn_camera()
+        self._init_playback()
         return (f"Maze regenerated with {algo}", True)
 
     def _cmd_color(self, args: list[str]) -> tuple[str, bool]:
@@ -466,14 +484,33 @@ class Renderer:
         self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
         self._init_minimap()
         return ("Toggled the solution display", True)
-        
+
     def _cmd_play_solution(self, args: list[str]) -> tuple[str, bool]:
+        """Play the solution."""
+        if self.playback.is_playing:
+            self.playback.stop()
+            return ("Stopped playing the solution", True)
+
+        if len(args) > 1:
+            return ("Usage: /play <speed=2.5>", False)
+
+        speed = 2.5
+        if args:
+            try:
+                speed = float(args[0])
+            except ValueError:
+                return ("Usage: /play <speed=2.5>", False)
+
+        if speed <= 0.0:
+            return ("Speed must be > 0. Usage: /play <speed=2.5>", False)
+
+        self.playback.speed = speed
         thread = threading.Thread(
-            target=self.pathfinding.play_solution,
+            target=self.playback.play_solution,
             daemon=True
         )
         thread.start()
-        return ("Started playing the solution", True)
+        return (f"Started playing the solution (speed={speed:g})", True)
 
     def quit(self) -> None:
         """Properly exit mlx."""
