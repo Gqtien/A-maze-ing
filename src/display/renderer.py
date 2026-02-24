@@ -89,6 +89,10 @@ class Renderer:
             self.mlx_raycasting_buffer, dtype=numpy.uint8
         ).reshape(self.height, self.width, 4)
 
+        # precomputed background color buffer (sky/floor)
+        self.bg_buffer: npt.NDArray[numpy.uint8]
+        self._recompute_bg_buffer()
+
         # precomputed chat background color buffer
         self.chat_bg_buffer: npt.NDArray[numpy.float32] = numpy.empty(
             (self.height - self.height // 2, self.width // 2, 3),
@@ -231,6 +235,19 @@ class Renderer:
             bgra[i] = bgra[i] + (255 - bgra[i]) * (100 - percentage) // 100
         return bytes(bgra)
 
+    def _recompute_bg_buffer(self) -> None:
+        half_h = self.height // 2
+        bg = numpy.empty((self.height, self.width, 4), dtype=numpy.uint8)
+
+        floor = numpy.frombuffer(self.pattern_color, dtype=numpy.uint8)
+        sky = numpy.frombuffer(
+            self._lighten_color(self.pattern_color, 95), dtype=numpy.uint8
+        )
+
+        bg[half_h:, :, :] = floor
+        bg[:half_h, :, :] = sky
+        self.bg_buffer = bg
+
     def _get_cell_color(self, x: int, y: int) -> bytes:
         """Return BGRA bytes for minimap cell at grid (x, y)."""
         if (x, y) in self.grid_pattern_core:
@@ -318,14 +335,7 @@ class Renderer:
         put raycasting and minimap images to window.
         """
 
-        # huge performance loss compared to numpy.fill
-        self.numpy_raycasting_buffer[len(self.numpy_raycasting_buffer)//2:] = (
-            list(self.pattern_color)
-        )
-        self.numpy_raycasting_buffer[:len(self.numpy_raycasting_buffer)//2] = (
-            list(self._lighten_color(self.pattern_color, 95))
-        )
-
+        self.numpy_raycasting_buffer[:] = self.bg_buffer
         self.minimap_buffer[:] = self.minimap_clear_buffer
 
         # render walls
@@ -464,6 +474,7 @@ class Renderer:
             if self.wall_color_index == 1
             else ColorPalette.WHITE.value
         )
+        self._recompute_bg_buffer()
         self._redraw_minimap()
         return ("Changed the wall color", True)
 
