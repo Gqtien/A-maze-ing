@@ -448,32 +448,32 @@ class Maze:
 
         return grid
 
-    def solution_to_grid(self) -> set[tuple[int, int]]:
-        solution_grid = set()
+    def solution_to_grid(self) -> list[tuple[int, int]]:
+        solution_grid = []
         for cell, next_cell in zip(self.solution, self.solution[1:]):
             cx, cy = 2 * cell.x + 1, 2 * cell.y + 1
             nx, ny = 2 * next_cell.x + 1, 2 * next_cell.y + 1
 
-            solution_grid.add((cx, cy))
+            solution_grid.append((cx, cy))
             mx, my = (cx + nx) // 2, (cy + ny) // 2
-            solution_grid.add((mx, my))
+            solution_grid.append((mx, my))
         last = self.solution[-1]
-        solution_grid.add((2*last.x + 1, 2*last.y + 1))
+        solution_grid.append((2*last.x + 1, 2*last.y + 1))
 
         return solution_grid
 
-    def pattern_core_to_grid(self) -> set[tuple[int, int]]:
+    def pattern_core_to_grid(self) -> list[tuple[int, int]]:
         """Return grid coords of pattern cells and links only (no outline)."""
         pattern_cells = self.get_pattern_cells()
-        out: set[tuple[int, int]] = set()
+        out: list[tuple[int, int]] = []
         for c in pattern_cells:
-            out.add((2 * c.x + 1, 2 * c.y + 1))
+            out.append((2 * c.x + 1, 2 * c.y + 1))
             for n in self.get_neighbors(c):
                 if n in pattern_cells:
-                    out.add((c.x + n.x + 1, c.y + n.y + 1))
+                    out.append((c.x + n.x + 1, c.y + n.y + 1))
         return out
 
-    def pattern_to_grid(self) -> set[tuple[int, int]]:
+    def pattern_to_grid(self) -> list[tuple[int, int]]:
         """Return grid coords of pattern cells, links, and 1 cell border."""
         out = self.pattern_core_to_grid()
         gw, gh = 2 * self.width + 1, 2 * self.height + 1
@@ -484,7 +484,7 @@ class Maze:
             ):
                 ngx, ngy = gx + dgx, gy + dgy
                 if 0 <= ngx < gw and 0 <= ngy < gh:
-                    out.add((ngx, ngy))
+                    out.append((ngx, ngy))
         return out
 
     def save_to_file(self, filename: str) -> None:

@@ -19,6 +19,8 @@ from display.drawing import (
     put_string,
     draw_player_sprite,
 )
+from display.pathfinding import Pathfinding
+import threading
 
 
 class Renderer:
@@ -101,6 +103,14 @@ class Renderer:
         self._init_minimap()
 
         self._spawn_camera()
+        
+        self.pathfinding = Pathfinding(
+            self.camera,
+            self.grid,
+            self.grid_solution_cells,
+            config.get("MODE")
+        )
+        self.chat_handler.register_command("play", self._cmd_play_solution)
 
     def _init_mlx(self) -> None:
         """Init and setup mlx: create mlx, window, register loop hook."""
@@ -442,12 +452,12 @@ class Renderer:
     def _cmd_toggle_fps(self, args: list[str]) -> tuple[str, bool]:
         """Toggle FPS display."""
         self.fps = not self.fps
-        return ("Successfully toggled the FPS HUD", True)
+        return ("Toggled the FPS HUD", True)
 
     def _cmd_toggle_mouse(self, args: list[str]) -> tuple[str, bool]:
         """Toggle mouse input."""
         self.mouse_handler.toggle()
-        return ("Successfully toggled the mouse", True)
+        return ("Toggled the mouse", True)
 
     def _cmd_toggle_path(self, args: list[str]) -> tuple[str, bool]:
         """Toggle path display."""
@@ -455,7 +465,15 @@ class Renderer:
         self._compute_minimap()
         self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
         self._init_minimap()
-        return ("Successfully toggled the solution display", True)
+        return ("Toggled the solution display", True)
+        
+    def _cmd_play_solution(self, args: list[str]) -> tuple[str, bool]:
+        thread = threading.Thread(
+            target=self.pathfinding.play_solution,
+            daemon=True
+        )
+        thread.start()
+        return ("Started playing the solution", True)
 
     def quit(self) -> None:
         """Properly exit mlx."""
