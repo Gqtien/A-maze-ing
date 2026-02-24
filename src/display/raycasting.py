@@ -13,6 +13,7 @@ def cast_ray(
     grid_height: int,
     entry_pos: tuple[int, int],
     exit_pos: tuple[int, int],
+    wall_color: bytes
 ) -> tuple[float, bytes]:
     """Get the distance from a wall in a direction."""
     # FOV stuff and camera plane
@@ -72,26 +73,26 @@ def cast_ray(
 
     # get wall color
     perp_wall_dist: float = dist_x - dx if is_vertical else dist_y - dy
-    color: bytes = darken_color_to_bytes(Color.WALL, not is_vertical)
+    color: bytes = darken_color_to_bytes(wall_color, not is_vertical)
     if is_vertical:
         map_x -= step_x
     else:
         map_y -= step_y
     if (map_x, map_y) == entry_pos:
-        color = darken_color_to_bytes(Color.GREEN, not is_vertical)
+        color = darken_color_to_bytes(Color.GREEN.value, not is_vertical)
     elif (map_x, map_y) == exit_pos:
-        color = darken_color_to_bytes(Color.RED, not is_vertical)
+        color = darken_color_to_bytes(Color.RED.value, not is_vertical)
 
     return perp_wall_dist, color
 
 
 @lru_cache(maxsize=None)  # NOTE: don't remove
 def darken_color_to_bytes(
-    color: Color, do_darken: bool = True, amount: int = 0x20
+    color: bytes, do_darken: bool = True, amount: int = 0x20
 ) -> bytes:
     """Subtract amount (default 0x20) from color, excluding alpha."""
     if not do_darken:
-        return color.value
+        return color
     return bytes(
-        map(lambda byte: max(0x0, byte - amount), color.value[:3])
-    ) + color.value[3:]
+        map(lambda byte: max(0x0, byte - amount), color[:3])
+    ) + color[3:]

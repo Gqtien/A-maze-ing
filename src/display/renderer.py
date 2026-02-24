@@ -1,6 +1,7 @@
 from functools import lru_cache
 import signal
 import time
+from core.maze import Wall
 import numpy
 import numpy.typing as npt
 from typing import Any
@@ -52,19 +53,15 @@ class Renderer:
         self.chat_handler.register_command("mouse", self._cmd_toggle_mouse)
         self.chat_handler.register_command("solution", self._cmd_toggle_path)
 
-        self._minimap_palette: list[ColorPalette] = list(ColorPalette)
-        self._minimap_wall_color_index: int = 0
-        self._minimap_wall_color: bytes = self._minimap_palette[
-            self._minimap_wall_color_index
-        ].value
-        self._minimap_pattern_color: bytes = self._darker_minimap_color(
-            self._minimap_wall_color
+        self.wall_palette: list[ColorPalette] = list(ColorPalette)
+        self.wall_color_index: int = 0
+        self.wall_color: bytes = self.wall_palette[self.wall_color_index].value
+        self.pattern_color: bytes = self._darken_color(self.wall_color)
+        self.pattern_core_color: bytes = self._lighten_color(
+            self.pattern_color
         )
-        self._minimap_pattern_core_color: bytes = self._lighter_minimap_color(
-            self._minimap_pattern_color
-        )
-        self._minimap_solution_color: bytes = self._minimap_palette[
-            self._minimap_wall_color_index + 1
+        self.solution_color: bytes = self.wall_palette[
+            self.wall_color_index + 1
         ].value
 
         self._init_mlx()
@@ -211,7 +208,7 @@ class Renderer:
 
     @staticmethod
     @lru_cache(maxsize=None)
-    def _darker_minimap_color(color: bytes, percentage: int = 50) -> bytes:
+    def _darken_color(color: bytes, percentage: int = 50) -> bytes:
         """Return a darker version of the color."""
         bgra: list[int] = list(color)
         for i in range(3):
@@ -220,7 +217,7 @@ class Renderer:
 
     @staticmethod
     @lru_cache(maxsize=None)
-    def _lighter_minimap_color(color: bytes, percentage: int = 85) -> bytes:
+    def _lighten_color(color: bytes, percentage: int = 85) -> bytes:
         """Return a lighter version of the color."""
         bgra: list[int] = list(color)
         for i in range(3):
@@ -230,17 +227,17 @@ class Renderer:
     def _get_cell_color(self, x: int, y: int) -> bytes:
         """Return BGRA bytes for minimap cell at grid (x, y)."""
         if (x, y) in self.grid_pattern_core:
-            return self._minimap_pattern_core_color
+            return self.pattern_core_color
         if (x, y) in self.grid_pattern_cells:
-            return self._minimap_pattern_color
+            return self.pattern_color
         if self.grid[y][x]:
-            return self._minimap_wall_color
+            return self.wall_color
         if (x, y) == self.grid_entry_pos:
             return Color.GREEN.value
         if (x, y) == self.grid_exit_pos:
             return Color.RED.value
         if self.show_solution and (x, y) in self.grid_solution_cells:
-            return self._minimap_solution_color
+            return self.solution_color
         return Color.WHITE.value
 
     def _spawn_camera(self) -> None:
@@ -270,6 +267,7 @@ class Renderer:
                 grid_height=self.grid_height,
                 entry_pos=self.grid_entry_pos,
                 exit_pos=self.grid_exit_pos,
+                wall_color=self.wall_color
             )
             perp_wall_dist = max(perp_wall_dist, 1e-6)
             line_height: int = int(self.height // perp_wall_dist)
@@ -286,9 +284,9 @@ class Renderer:
     def _render_player(self) -> None:
         """Draw the player sprite on the minimap."""
         player_color = (
-            self._minimap_pattern_color
-            if self._minimap_wall_color_index == 0
-            else self._darker_minimap_color(ColorPalette.WHITE.value)
+            self.pattern_color
+            if self.wall_color_index == 1
+            else self._darken_color(ColorPalette.WHITE.value)
         )
         draw_player_sprite(
             camera_pos=(self.camera.pos.x, self.camera.pos.y),
@@ -310,7 +308,13 @@ class Renderer:
         """
         # TODO: The visual should clearly show solution path.
 
-        self.numpy_raycasting_buffer.fill(200)
+        self.numpy_raycasting_buffer[len(self.numpy_raycasting_buffer)//2:] = (
+            list(self.pattern_color)
+        )
+        self.numpy_raycasting_buffer[:len(self.numpy_raycasting_buffer)//2] = (
+            list(self._lighten_color(self.pattern_color, 95))
+        )
+
         self.minimap_buffer[:] = self.minimap_clear_buffer
 
         # render walls
@@ -420,26 +424,20 @@ class Renderer:
         return (f"Maze regenerated with {algo}", True)
 
     def _cmd_color(self, args: list[str]) -> tuple[str, bool]:
-        """Cycle minimap wall/pattern through ColorPalette."""
-        self._minimap_wall_color_index = (
-            self._minimap_wall_color_index + 1
-        ) % len(self._minimap_palette)
-        self._minimap_wall_color = self._minimap_palette[
-            self._minimap_wall_color_index
-        ].value
-        self._minimap_pattern_color = self._darker_minimap_color(
-            self._minimap_wall_color
-        )
-        self._minimap_pattern_core_color = self._lighter_minimap_color(
-            self._minimap_pattern_color
-        )
-        self._minimap_solution_color = (
-            self._minimap_palette[self._minimap_wall_color_index + 1].value
-            if self._minimap_wall_color_index == 0
+        """Cycle wall/pattern/solution color through ColorPalette."""
+        self.wall_color_index = (
+            self.wall_color_index + 1
+        ) % len(self.wall_palette)
+        self.wall_color = self.wall_palette[self.wall_color_index].value
+        self.pattern_color = self._darken_color(self.wall_color)
+        self.pattern_core_color = self._lighten_color(self.pattern_color)
+        self.solution_color = (
+            self.wall_palette[self.wall_color_index + 1].value
+            if self.wall_color_index == 1
             else ColorPalette.WHITE.value
         )
         self._redraw_minimap()
-        return ("Changed the minimap wall color", True)
+        return ("Changed the wall color", True)
 
     def _cmd_toggle_fps(self, args: list[str]) -> tuple[str, bool]:
         """Toggle FPS display."""
