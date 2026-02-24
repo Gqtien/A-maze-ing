@@ -1,6 +1,7 @@
 import math
 from functools import lru_cache
 import numpy
+import numpy.typing as npt
 from utils import Rect
 from assets import (
     CHARS,
@@ -18,7 +19,7 @@ def draw_horizontal_line(
     x: int,
     height: int,
     argb: bytes,
-    numpy_buffer: numpy.ndarray,
+    numpy_buffer: npt.NDArray[numpy.uint8],
 ) -> None:
     """Draw a vertical line at x from y0 to y1."""
     y0 = max(0, y0)
@@ -66,17 +67,20 @@ def put_pixel(
 
 
 @lru_cache()
-def alpha_for_char(char: str) -> numpy.ndarray:
+def alpha_for_char(char: str) -> npt.NDArray[numpy.float32]:
     """Alpha bitmap for one char. Cached."""
     if len(char) != 1:
-        return numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W))
+        return numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W), dtype=numpy.float32)
 
     glyph = CHARS.get(char)
     if not glyph:
-        return numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W))
+        return numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W), dtype=numpy.float32)
 
     # build opacty grid
-    a = numpy.zeros((CHAR_GLYPH_H, CHAR_GLYPH_W))
+    a: npt.NDArray[numpy.float32] = numpy.zeros(
+        (CHAR_GLYPH_H, CHAR_GLYPH_W),
+        dtype=numpy.float32
+    )
     for row, line in enumerate(glyph):
         for col, cell in enumerate(line):
             if "0" <= cell <= "9":
@@ -89,7 +93,7 @@ def put_string(
     x: int,
     y: int,
     argb: bytes,
-    numpy_buffer: numpy.ndarray,
+    numpy_buffer: npt.NDArray[numpy.uint8],
 ) -> None:
     """Draw a string."""
     if not string:

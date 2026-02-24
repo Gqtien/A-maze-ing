@@ -14,12 +14,13 @@ usage:
 	@echo ""
 	@echo "Commands:"
 	@$(foreach cmd,$(filter-out usage,$(CMDS)), \
-		echo "  - $(cmd) $(if $(filter run debug,$(cmd)),<config_file>)";)
+		echo "  - $(cmd) $(if $(filter run profile,$(cmd)),<config_file>)";)
 
 install:
 	@$(PYTHON) -m venv $(VENV_DIR)
 	@$(PIP) install --upgrade pip
 	@$(PIP) install -r requirements.txt
+	@$(PIP) install src/assets/mlx-2.2-py3-none-any.whl
 	@$(PIP) install flake8 mypy
 	@echo "Environment created."
 	@echo "Run: source $(VENV_DIR)/bin/activate"
@@ -41,6 +42,7 @@ profile:
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
 	@find . -type d -name ".mypy_cache" -exec rm -rf {} +
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	@rm -rf $(VENV_DIR)
 	@rm -rf dist
 	@rm -rf mazegen.egg-info

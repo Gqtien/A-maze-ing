@@ -8,12 +8,12 @@ from input import KeyboardHandler
 CommandResult = tuple[str | None, bool] | None
 
 
-def _is_printable_key(key) -> bool:
+def _is_printable_key(key: str | keyboard.Key) -> bool:
     return (
         isinstance(key, str)
         and len(key) == 1
         and key in string.printable
-        and key != ":"
+        and key != "/"
     )
 
 
@@ -78,7 +78,7 @@ class ChatHandler:
 
     def update(self) -> None:
         keys_pressed = self.keyboard_handler.keys_pressed
-        slash_pressed = ":" in keys_pressed
+        slash_pressed = "/" in keys_pressed
         escape_pressed = keyboard.Key.esc in keys_pressed
 
         self._update_toggle_and_escape(slash_pressed, escape_pressed)
@@ -130,7 +130,7 @@ class ChatHandler:
         elif key == keyboard.Key.space:
             self.input_buffer += " "
         elif _is_printable_key(key):
-            self.input_buffer += key
+            self.input_buffer += str(key)
 
     def _handle_history_up(self) -> None:
         if not self._command_history:

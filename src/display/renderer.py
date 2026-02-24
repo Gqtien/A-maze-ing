@@ -1,9 +1,10 @@
 import signal
 import time
 import numpy
+import numpy.typing as npt
 from typing import Any
 from pynput import keyboard
-from libs.mlx.mlx import Mlx
+from mlx import Mlx  # type: ignore
 from core import Maze
 from utils import Vec2, Rect
 from input import KeyboardHandler, ChatHandler
@@ -77,7 +78,7 @@ class Renderer:
         ).reshape(self.height, self.width, 4)
 
         # precomputed chat background color buffer
-        self.chat_bg_buffer: numpy.ndarray = numpy.empty(
+        self.chat_bg_buffer: npt.NDArray[numpy.float32] = numpy.empty(
             (self.height - self.height // 2, self.width // 2, 3),
             dtype=numpy.float32,
         )
@@ -198,17 +199,17 @@ class Renderer:
         self.minimap_clear_buffer = bytes(self.minimap_buffer)
 
     @staticmethod
-    def _darker_minimap_color(bgra: bytes, percentage: int = 50) -> bytes:
+    def _darker_minimap_color(color: bytes, percentage: int = 50) -> bytes:
         """Return a darker version of the color."""
-        bgra = list(bgra)
+        bgra: list[int] = list(color)
         for i in range(3):
             bgra[i] = bgra[i] * (100 - percentage) // 100
         return bytes(bgra)
 
     @staticmethod
-    def _lighter_minimap_color(bgra: bytes, percentage: int = 85) -> bytes:
+    def _lighter_minimap_color(color: bytes, percentage: int = 85) -> bytes:
         """Return a lighter version of the color."""
-        bgra = list(bgra)
+        bgra: list[int] = list(color)
         for i in range(3):
             bgra[i] = bgra[i] + (255 - bgra[i]) * (100 - percentage) // 100
         return bytes(bgra)

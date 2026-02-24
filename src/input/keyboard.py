@@ -1,11 +1,11 @@
 import threading
-from pynput import keyboard
+from pynput.keyboard import Key, KeyCode, Listener
 
 
 class KeyboardHandler:
     """
-        Manages keyboard input in a separate thread.
-        Singleton: only one instance exists.
+    Manages keyboard input in a separate thread.
+    Singleton: only one instance exists.
     """
 
     _instance: "KeyboardHandler | None" = None
@@ -19,26 +19,30 @@ class KeyboardHandler:
         """Start the keyboard listener in a separate thread on first call."""
         if getattr(self, "_initialized", False):
             return
-        self.keys_pressed: set[str | keyboard.Key] = set()
-        listener = keyboard.Listener(
+
+        self.keys_pressed: set[str | Key] = set()
+
+        listener = Listener(
             on_press=self._on_press,
             on_release=self._on_release,
         )
+
         listener_thread = threading.Thread(target=listener.start)
         listener_thread.daemon = True
         listener_thread.start()
+
         self._initialized = True
 
-    def _on_press(self, key: keyboard.Key) -> None:
+    def _on_press(self, key: Key | KeyCode | None) -> None:
         """Key press callback."""
-        try:
+        if isinstance(key, KeyCode) and key.char is not None:
             self.keys_pressed.add(key.char)
-        except AttributeError:
+        elif isinstance(key, Key):
             self.keys_pressed.add(key)
 
-    def _on_release(self, key: keyboard.Key) -> None:
+    def _on_release(self, key: Key | KeyCode | None) -> None:
         """Key release callback."""
-        try:
+        if isinstance(key, KeyCode) and key.char is not None:
             self.keys_pressed.discard(key.char)
-        except AttributeError:
+        elif isinstance(key, Key):
             self.keys_pressed.discard(key)

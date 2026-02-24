@@ -68,10 +68,10 @@ class Maze:
 
     def __init__(
         self,
-        width: int | None,
-        height: int | None,
-        entry_pos: tuple[int, int] | None,
-        exit_pos: tuple[int, int] | None,
+        width: int,
+        height: int,
+        entry_pos: tuple[int, int],
+        exit_pos: tuple[int, int],
         perfect: bool | None = None,
         seed: int | None = None,
         output_file_name: str | None = None,
