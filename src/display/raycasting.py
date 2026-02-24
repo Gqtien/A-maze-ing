@@ -85,7 +85,7 @@ def cast_ray(
     return perp_wall_dist, color
 
 
-@lru_cache()  # NOTE: that's one of the biggest opti, dont remove !
+@lru_cache(maxsize=None)  # NOTE: don't remove
 def darken_color_to_bytes(
     color: Color, do_darken: bool = True, amount: int = 0x20
 ) -> bytes:

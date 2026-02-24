@@ -7,7 +7,7 @@ from pynput import keyboard
 from mlx import Mlx  # type: ignore
 from core import Maze
 from utils import Vec2, Rect
-from input import KeyboardHandler, ChatHandler
+from input import KeyboardHandler, MouseHandler, ChatHandler
 from assets import Color, ColorPalette, CHAR_GLYPH_H
 from display.camera import Camera, face_open_corridor
 from display.raycasting import cast_ray
@@ -38,6 +38,9 @@ class Renderer:
         self._set_maze_state()
 
         self.keyboard_handler = KeyboardHandler()
+        self.mouse_handler = MouseHandler()
+        if self.config.get("MOUSE", False):
+            self.mouse_handler.toggle()
         self.chat_handler = ChatHandler()
         self._esc_was_pressed: bool = False
         self.chat_handler.register_command(
@@ -45,6 +48,7 @@ class Renderer:
         )
         self.chat_handler.register_command("fps", self._cmd_toggle_fps)
         self.chat_handler.register_command("color", self._cmd_color)
+        self.chat_handler.register_command("mouse", self._cmd_toggle_mouse)
 
         self._minimap_palette: list[ColorPalette] = list(ColorPalette)
         self._minimap_wall_color_index: int = 0
@@ -429,6 +433,11 @@ class Renderer:
         """Toggle FPS display."""
         self.fps = not self.fps
         return ("Successfully toggled the FPS HUD", True)
+
+    def _cmd_toggle_mouse(self, args: list[str]) -> tuple[str, bool]:
+        """Toggle mouse input."""
+        self.mouse_handler.toggle()
+        return ("Successfully toggled the mouse", True)
 
     def quit(self) -> None:
         """Properly exit mlx."""

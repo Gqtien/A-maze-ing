@@ -11,3 +11,4 @@ FOV=80
 MODE=wasd
 PATTERN=42
 FPS=True
+MOUSE=False

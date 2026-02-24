@@ -1,6 +1,6 @@
 import math
 from utils import Vec2, Rect
-from input import KeyboardHandler
+from input import KeyboardHandler, MouseHandler
 from pynput import keyboard
 from core import Mode
 
@@ -36,12 +36,13 @@ class Camera:
         self.mode: Mode = mode if mode is not None else Mode("wasd")
         self.keys = self.mode.keys()
         self.keyboard_handler = KeyboardHandler()
+        self.mouse_handler = MouseHandler()
 
         # Movement in units per second (independant from frame rate)
         self.move_speed: float = 2.5
         self.strafe_speed: float = 1.4
         self.rotate_speed: float = 2.0
-        self.fov_change_speed: float = 30.0
+        self.mouse_sensitivity: float = 0.05
 
     def _can_move_to(self, new_x: float, new_y: float) -> bool:
         """Check if the new position is not in a wall."""
@@ -73,6 +74,9 @@ class Camera:
         """Move the camera."""
         dt: float = delta_time_ns / 1000000000.0
         pressed: set[str | keyboard.Key] = self.keyboard_handler.keys_pressed
+
+        dx, _ = self.mouse_handler.consume_delta()
+        self.direction.rotate(dx * self.mouse_sensitivity * dt)
 
         if keyboard.Key.right in pressed:
             self.direction.rotate(self.rotate_speed * dt)

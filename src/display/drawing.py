@@ -66,7 +66,7 @@ def put_pixel(
     buffer[offset:offset + 4] = argb
 
 
-@lru_cache()
+@lru_cache(maxsize=None)  # NOTE: don't remove
 def alpha_for_char(char: str) -> npt.NDArray[numpy.float32]:
     """Alpha bitmap for one char. Cached."""
     if len(char) != 1:

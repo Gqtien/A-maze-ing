@@ -87,6 +87,7 @@ class ConfigKey(Enum):
     MODE = Mode
     PATTERN = Pattern
     FPS = bool
+    MOUSE = bool
 
 
 def env_int(name: str, default: str) -> int:

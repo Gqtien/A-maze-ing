@@ -33,7 +33,7 @@ compile:
 	@$(PYTHON) -m venv $(VENV_DIR)
 	@$(PIP) install -U build
 	@$(MAZEGEN)
-	$(BIN)/$(PYTHON) -m build
+	@$(BIN)/$(PYTHON) -m build
 	@rm -f mazegen.py
 
 profile:
@@ -49,12 +49,12 @@ clean:
 	@rm -f out.txt
 
 lint:
-	flake8 src || true
-	mypy src --exclude 'libs' --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs || true
+	@flake8 src || true
+	@mypy src --exclude 'libs' --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs || true
 
 lint-strict:
-	flake8 src || true
-	mypy src --strict || true
+	@flake8 src || true
+	@mypy src --strict || true
 
 $(ARGS):
 	@:
