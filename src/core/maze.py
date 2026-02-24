@@ -1,5 +1,6 @@
 import random
 from enum import Enum
+from typing import Optional
 from assets import DIGITS
 from core.config import Pattern
 
@@ -94,6 +95,7 @@ class Maze:
         )
 
         self._generate()
+        self.solution = self.solve()
 
         if output_file_name is not None:
             self.save_to_file(output_file_name)
@@ -123,8 +125,8 @@ class Maze:
 
         for pos in (self.entry_pos, self.exit_pos):
             ret += ",".join(map(str, pos)) + "\n"
-        # TODO: the shortest valid path from entry to exit,
-        # using the four letters N , E , S , W .
+
+        ret += self.cardinal_path(self.solution)
         return ret
 
     def _generate(self) -> None:
@@ -226,6 +228,82 @@ class Maze:
                 if neighbor not in in_maze:
                     frontier.append((cell_out, neighbor))
 
+    def solve(self) -> list[Cell]:
+        """Dijkstra's algo."""
+        rows, cols = len(self._maze), len(self._maze[0])
+
+        distances = [[float('inf')] * cols for _ in range(rows)]
+        parents: list[list[Optional[tuple[int, int]]]] = (
+            [[None] * cols for _ in range(rows)]
+        )
+        visited = [[False] * cols for _ in range(rows)]
+
+        start_x, start_y = self.entry_pos
+        exit_x, exit_y = self.exit_pos
+        distances[start_y][start_x] = 0
+
+        while True:
+            min_dist = float('inf')
+            current: Optional[tuple[int, int]] = None
+            for y in range(rows):
+                for x in range(cols):
+                    if not visited[y][x] and distances[y][x] < min_dist:
+                        min_dist = distances[y][x]
+                        current = (x, y)
+
+            if current is None:
+                break
+
+            x, y = current
+            visited[y][x] = True
+
+            if (x, y) == (exit_x, exit_y):
+                path: list[Cell] = []
+                while (x, y) != (start_x, start_y):
+                    path.append(self.get_cell(x, y))
+                    parent = parents[y][x]
+                    assert parent is not None
+                    x, y = parent
+                path.append(self.get_cell(start_x, start_y))
+                path.reverse()
+                return path
+
+            for neighbor in self.get_accessible_neighbors(self.get_cell(x, y)):
+                nx, ny = neighbor.x, neighbor.y
+                if not visited[ny][nx]:
+                    if distances[ny][nx] > distances[y][x] + 1:
+                        distances[ny][nx] = distances[y][x] + 1
+                        parents[ny][nx] = (x, y)
+
+        return []
+
+    def cardinal_path(self, path: list[Cell]) -> str:
+        """Convert cells path to cardinal path."""
+        if not path:
+            return ""
+
+        direction: str = ""
+        previous = path[0]
+
+        for cell in path[1:]:
+            dx = cell.x - previous.x
+            dy = cell.y - previous.y
+
+            if dx == 1 and dy == 0:
+                direction += "E"
+            elif dx == -1 and dy == 0:
+                direction += "W"
+            elif dx == 0 and dy == -1:
+                direction += "N"
+            elif dx == 0 and dy == 1:
+                direction += "S"
+            else:
+                raise ValueError(f"Invalid path between {previous} and {cell}")
+
+            previous = cell
+
+        return direction
+
     def _degree(self, c: Cell) -> int:
         """Number of open sides."""
         return (
@@ -319,6 +397,19 @@ class Maze:
             ret.append(self._maze[ny][nx])
         return ret
 
+    def get_accessible_neighbors(self, cell: Cell) -> list[Cell]:
+        neighbors = []
+        x, y = cell.x, cell.y
+        if not cell.wall & 0x1:  # North
+            neighbors.append(self.get_cell(x, y-1))
+        if not cell.wall & 0x2:  # East
+            neighbors.append(self.get_cell(x+1, y))
+        if not cell.wall & 0x4:  # South
+            neighbors.append(self.get_cell(x, y+1))
+        if not cell.wall & 0x8:  # West
+            neighbors.append(self.get_cell(x-1, y))
+        return neighbors
+
     def get_cell(self, x: int, y: int) -> Cell:
         """Return cell at (x, y)."""
         return self._maze[y][x]
@@ -356,6 +447,20 @@ class Maze:
                     grid[cy][cx + 1] = False
 
         return grid
+
+    def solution_to_grid(self) -> set[tuple[int, int]]:
+        solution_grid = set()
+        for cell, next_cell in zip(self.solution, self.solution[1:]):
+            cx, cy = 2 * cell.x + 1, 2 * cell.y + 1
+            nx, ny = 2 * next_cell.x + 1, 2 * next_cell.y + 1
+
+            solution_grid.add((cx, cy))
+            mx, my = (cx + nx) // 2, (cy + ny) // 2
+            solution_grid.add((mx, my))
+        last = self.solution[-1]
+        solution_grid.add((2*last.x + 1, 2*last.y + 1))
+
+        return solution_grid
 
     def pattern_core_to_grid(self) -> set[tuple[int, int]]:
         """Return grid coords of pattern cells and links only (no outline)."""

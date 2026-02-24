@@ -1,3 +1,4 @@
+from functools import lru_cache
 import signal
 import time
 import numpy
@@ -49,6 +50,7 @@ class Renderer:
         self.chat_handler.register_command("fps", self._cmd_toggle_fps)
         self.chat_handler.register_command("color", self._cmd_color)
         self.chat_handler.register_command("mouse", self._cmd_toggle_mouse)
+        self.chat_handler.register_command("solution", self._cmd_toggle_path)
 
         self._minimap_palette: list[ColorPalette] = list(ColorPalette)
         self._minimap_wall_color_index: int = 0
@@ -61,6 +63,9 @@ class Renderer:
         self._minimap_pattern_core_color: bytes = self._lighter_minimap_color(
             self._minimap_pattern_color
         )
+        self._minimap_solution_color: bytes = self._minimap_palette[
+            self._minimap_wall_color_index + 1
+        ].value
 
         self._init_mlx()
 
@@ -139,8 +144,10 @@ class Renderer:
         }
         self.grid_width = len(self.grid[0])
         self.grid_height = len(self.grid)
+        self.grid_solution_cells = self.maze.solution_to_grid()
         self.grid_pattern_cells = self.maze.pattern_to_grid()
         self.grid_pattern_core = self.maze.pattern_core_to_grid()
+        self.show_solution = False
 
     def _compute_minimap(self) -> None:
         """Set minimap cell size and offsets."""
@@ -203,6 +210,7 @@ class Renderer:
         self.minimap_clear_buffer = bytes(self.minimap_buffer)
 
     @staticmethod
+    @lru_cache(maxsize=None)
     def _darker_minimap_color(color: bytes, percentage: int = 50) -> bytes:
         """Return a darker version of the color."""
         bgra: list[int] = list(color)
@@ -211,6 +219,7 @@ class Renderer:
         return bytes(bgra)
 
     @staticmethod
+    @lru_cache(maxsize=None)
     def _lighter_minimap_color(color: bytes, percentage: int = 85) -> bytes:
         """Return a lighter version of the color."""
         bgra: list[int] = list(color)
@@ -230,6 +239,8 @@ class Renderer:
             return Color.GREEN.value
         if (x, y) == self.grid_exit_pos:
             return Color.RED.value
+        if self.show_solution and (x, y) in self.grid_solution_cells:
+            return self._minimap_solution_color
         return Color.WHITE.value
 
     def _spawn_camera(self) -> None:
@@ -277,7 +288,7 @@ class Renderer:
         player_color = (
             self._minimap_pattern_color
             if self._minimap_wall_color_index == 0
-            else ColorPalette.WHITE.value
+            else self._darker_minimap_color(ColorPalette.WHITE.value)
         )
         draw_player_sprite(
             camera_pos=(self.camera.pos.x, self.camera.pos.y),
@@ -376,10 +387,6 @@ class Renderer:
             self.camera.move(dt)
         self._render()
 
-        # TODO: User interactions must be available,
-        # at least for the following tasks:
-        # • Show/Hide a valid shortest path from the entrance to the exit.
-
         if (
             keyboard.Key.esc in self.keyboard_handler.keys_pressed
             and not self._esc_was_pressed
@@ -426,6 +433,11 @@ class Renderer:
         self._minimap_pattern_core_color = self._lighter_minimap_color(
             self._minimap_pattern_color
         )
+        self._minimap_solution_color = (
+            self._minimap_palette[self._minimap_wall_color_index + 1].value
+            if self._minimap_wall_color_index == 0
+            else ColorPalette.WHITE.value
+        )
         self._redraw_minimap()
         return ("Changed the minimap wall color", True)
 
@@ -438,6 +450,14 @@ class Renderer:
         """Toggle mouse input."""
         self.mouse_handler.toggle()
         return ("Successfully toggled the mouse", True)
+
+    def _cmd_toggle_path(self, args: list[str]) -> tuple[str, bool]:
+        """Toggle path display."""
+        self.show_solution = not self.show_solution
+        self._compute_minimap()
+        self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
+        self._init_minimap()
+        return ("Successfully toggled the solution display", True)
 
     def quit(self) -> None:
         """Properly exit mlx."""
