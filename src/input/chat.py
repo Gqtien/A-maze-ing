@@ -93,6 +93,7 @@ class ChatHandler:
     ) -> None:
         if slash_pressed and not self._slash_was_pressed:
             self.is_open = not self.is_open
+            self.keyboard_handler.keys_pressed = set()
             if not self.is_open:
                 self._prev_keys_pressed = set()
             self.input_buffer = "/"

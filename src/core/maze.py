@@ -1,5 +1,5 @@
 import random
-from enum import Enum
+from enum import Enum, auto
 from assets import DIGITS
 from core.config import Pattern
 
@@ -7,8 +7,8 @@ from core.config import Pattern
 class Algo(Enum):
     """Maze generation alogithm."""
 
-    PRIM = 1
-    BACKTRACKING = 2
+    PRIM = auto()
+    BACKTRACKING = auto()
 
 
 class Wall(Enum):
@@ -94,7 +94,7 @@ class Maze:
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
         self.algo: Algo = algo
-        self.seed: int = seed if seed else random.randint(0, 1_000_000)
+        self.seed: int = seed if seed else random.randint(0, int(1e9))
 
         self.pattern_cells: set[Cell] = set()
         self._generate()

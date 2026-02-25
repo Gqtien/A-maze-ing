@@ -1,6 +1,5 @@
 import os
 import signal
-import threading
 import time
 from functools import lru_cache
 from typing import Any
@@ -411,10 +410,11 @@ class Renderer:
         now: int = time.perf_counter_ns()
         dt = now - self.last_frame_time
         self.last_frame_time = now
+        self.playback.update(dt / 1e9)
 
         self.fps_frame_count += 1
         elapsed_ns = now - self.fps_last_update_ns
-        if elapsed_ns >= 1_000_000_000:
+        if elapsed_ns >= 1e9:
             self.fps_value = self.fps_frame_count * 1e9 / elapsed_ns
             self.fps_frame_count = 0
             self.fps_last_update_ns = now
@@ -530,11 +530,7 @@ class Renderer:
             return ("Speed must be > 0. Usage: /play <speed=2.5>", False)
 
         self.playback.speed = speed
-        thread = threading.Thread(
-            target=self.playback.play_solution,
-            daemon=True
-        )
-        thread.start()
+        self.playback.play_solution()
         return (f"Started playing the solution (speed={speed:g})", True)
 
     def quit(self) -> None:

@@ -1,6 +1,5 @@
-import time
 import math
-import threading
+from enum import Enum, auto
 from typing import TypeAlias
 from display.camera import Camera
 
@@ -12,25 +11,87 @@ Segment: TypeAlias = tuple[WorldPoint, WorldPoint, GridStep]
 Segments: TypeAlias = list[Segment]
 
 
+class Phase(Enum):
+    IDLE = auto()
+    EASE_TO_START = auto()
+    ROTATE_INITIAL = auto()
+    WALK = auto()
+    ROTATE_TURN = auto()
+
+
 class Playback:
     """Playback for the camera to follow the solution."""
 
     def __init__(
         self,
         camera: Camera,
-        solution: list[GridCell]
+        solution: list[GridCell],
     ) -> None:
         """Initialize the playback."""
         self.camera: Camera = camera
         self.solution: list[GridCell] = solution
-        self.tick: float = 0.002
-        self.speed: float = 10
+        self.speed: float = 2.5
         self.is_playing: bool = False
-        self._stop = threading.Event()
+
+        self._phase: Phase = Phase.IDLE
+        self._segments: Segments = []
+        self._seg_idx: int = 0
+
+        # ease_to state
+        self._ease_start: WorldPoint = (0.0, 0.0)
+        self._ease_end: WorldPoint = (0.0, 0.0)
+        self._ease_elapsed: float = 0.0
+        self._ease_duration: float = 0.0
+
+        # rotate state
+        self._rot_angle: float = 0.0
+        self._rot_elapsed: float = 0.0
+        self._rot_duration: float = 0.0
+        self._rot_progress: float = 0.0
+
+        # walk state
+        self._walk_start: WorldPoint = (0.0, 0.0)
+        self._walk_end: WorldPoint = (0.0, 0.0)
+        self._walk_elapsed: float = 0.0
+        self._walk_duration: float = 0.0
+        self._walk_turn_angle: float = 0.0
+        self._walk_turn_blend_duration: float = 0.0
+        self._walk_turn_blend_start_t: float = 0.0
+        self._walk_turn_progress: float = 0.0
+
+    def play_solution(self) -> None:
+        """Start (or stop if already playing) the playback."""
+        if self.is_playing:
+            self.stop()
+            return
+
+        segments = self._build_segments()
+        if not segments:
+            return
+
+        self.is_playing = True
+        self._segments = segments
+        self._seg_idx = 0
+        self._start_ease_to(segments[0][0], 0.08)
 
     def stop(self) -> None:
-        """Stop the playback."""
-        self._stop.set()
+        """Stop the playback immediately."""
+        self.is_playing = False
+        self._phase = Phase.IDLE
+
+    def update(self, dt: float) -> None:
+        """Advance the playback by dt."""
+        if not self.is_playing:
+            return
+
+        if self._phase == Phase.EASE_TO_START:
+            self._update_ease(dt)
+        elif self._phase == Phase.ROTATE_INITIAL:
+            self._update_rotate(dt)
+        elif self._phase == Phase.WALK:
+            self._update_walk(dt)
+        elif self._phase == Phase.ROTATE_TURN:
+            self._update_rotate(dt)
 
     def _closest_cell_index(self) -> int:
         """Return the index of the closest cell in the solution."""
@@ -86,7 +147,7 @@ class Playback:
 
     @staticmethod
     def _smoothstep(t: float) -> float:
-        """Return a smooth step function."""
+        """Return a smooth step."""
         t = max(0.0, min(1.0, t))
         return t * t * (3.0 - 2.0 * t)
 
@@ -102,133 +163,136 @@ class Playback:
             - math.pi
         )
 
-    def _ease_to(self, x: float, y: float, duration: float) -> None:
-        """Ease the camera to a position."""
-        start_x, start_y = self.camera.pos.x, self.camera.pos.y
-        dx, dy = x - start_x, y - start_y
-        if abs(dx) + abs(dy) < 1e-9 or duration <= 0.0:
-            self.camera.pos.x = x
-            self.camera.pos.y = y
-            return
+    def _start_ease_to(self, target: WorldPoint, duration: float) -> None:
+        self._ease_start = (self.camera.pos.x, self.camera.pos.y)
+        self._ease_end = target
+        self._ease_elapsed = 0.0
+        self._ease_duration = duration
+        self._phase = Phase.EASE_TO_START
 
-        start_time = time.perf_counter()
-        while not self._stop.is_set():
-            elapsed = time.perf_counter() - start_time
-            if elapsed >= duration:
-                break
-            t = self._smoothstep(elapsed / duration)
-            self.camera.pos.x = start_x + dx * t
-            self.camera.pos.y = start_y + dy * t
-            time.sleep(self.tick)
+    def _start_rotate(
+        self,
+        angle: float,
+        duration: float,
+        phase: Phase,
+    ) -> None:
+        self._rot_angle = angle
+        self._rot_elapsed = 0.0
+        self._rot_duration = duration
+        self._rot_progress = 0.0
+        self._phase = phase
 
-        if not self._stop.is_set():
-            self.camera.pos.x = x
-            self.camera.pos.y = y
+    def _start_walk(self, seg_idx: int) -> None:
+        start, end, step = self._segments[seg_idx]
+        distance = math.hypot(end[0] - start[0], end[1] - start[1])
+        duration = distance / self.speed
 
-    def _rotate(self, angle: float, duration: float) -> None:
-        """Rotate the camera to an angle."""
-        if abs(angle) < 1e-6:
-            return
-        start_time = time.perf_counter()
-        progress_applied = 0.0
-        while not self._stop.is_set():
-            elapsed = time.perf_counter() - start_time
-            if elapsed >= duration:
-                break
-            t = self._smoothstep(elapsed / duration)
-            # Only apply the delta since the last frame to avoid over rotating
-            self.camera.direction.rotate(angle * (t - progress_applied))
-            progress_applied = t
-            time.sleep(self.tick)
-        if not self._stop.is_set():
-            self.camera.direction.rotate(angle * (1.0 - progress_applied))
-
-    def play_solution(self) -> None:
-        """Play the solution."""
-        if self.is_playing:
-            self._stop.set()
-            self.is_playing = not self.is_playing
-            return
-        if len(self.solution) < 2:
-            return
-        self.is_playing = True
-        self._stop.clear()
-
-        try:
-            segments: Segments = self._build_segments()
-            if not segments:
-                return
-
-            self._ease_to(segments[0][0][0], segments[0][0][1], 0.08)
-            if self._stop.is_set():
-                return
-
-            camera_dir: tuple[float, float] = (
-                self.camera.direction.x,
-                self.camera.direction.y,
+        turn_angle = 0.0
+        if seg_idx + 1 < len(self._segments):
+            turn_angle = self._shortest_angle(
+                step,
+                self._segments[seg_idx + 1][2],
             )
-            self._rotate(self._shortest_angle(camera_dir, segments[0][2]), 0.2)
-            if self._stop.is_set():
-                return
 
-            for segment_index, (start, end, step) in enumerate(segments):
-                start_x, start_y = start
-                end_x, end_y = end
+        has_turn = abs(turn_angle) > 1e-3
+        turn_blend_duration = min(0.15, duration * 0.45) if has_turn else 0.0
 
-                distance = math.hypot(end_x - start_x, end_y - start_y)
-                duration = distance / self.speed
+        self._walk_start = start
+        self._walk_end = end
+        self._walk_elapsed = 0.0
+        self._walk_duration = duration
+        self._walk_turn_angle = turn_angle
+        self._walk_turn_blend_duration = turn_blend_duration
+        self._walk_turn_blend_start_t = duration - turn_blend_duration
+        self._walk_turn_progress = 0.0
+        self._phase = Phase.WALK
 
-                turn_angle = 0.0
-                if segment_index + 1 < len(segments):
-                    turn_angle = self._shortest_angle(
-                        step,
-                        segments[segment_index + 1][2],
-                    )
+    def _update_ease(self, dt: float) -> None:
+        sx, sy = self._ease_start
+        ex, ey = self._ease_end
 
-                has_turn = abs(turn_angle) > 1e-3
-                turn_blend_duration = (
-                    min(0.15, duration * 0.45)
-                    if has_turn else
-                    0.0
-                )
-                turn_blend_start_t = duration - turn_blend_duration
-                turn_progress = 0.0
+        self._ease_elapsed += dt
+        if (
+            self._ease_elapsed >= self._ease_duration
+            or self._ease_duration <= 0.0
+        ):
+            self.camera.pos.x = ex
+            self.camera.pos.y = ey
+            # rotate to face the first segment
+            camera_dir = (self.camera.direction.x, self.camera.direction.y)
+            angle = self._shortest_angle(camera_dir, self._segments[0][2])
+            self._start_rotate(angle, 0.2, Phase.ROTATE_INITIAL)
+            return
 
-                # Begin turning before the end of the segment
-                # to avoid stopping and turning again
-                start_time = time.perf_counter()
-                while not self._stop.is_set():
-                    elapsed = time.perf_counter() - start_time
-                    if elapsed >= duration:
-                        break
+        t = self._smoothstep(self._ease_elapsed / self._ease_duration)
+        self.camera.pos.x = sx + (ex - sx) * t
+        self.camera.pos.y = sy + (ey - sy) * t
 
-                    t = elapsed / duration if duration > 0.0 else 1.0
-                    self.camera.pos.x = start_x + (end_x - start_x) * t
-                    self.camera.pos.y = start_y + (end_y - start_y) * t
+    def _update_rotate(self, dt: float) -> None:
+        self._rot_elapsed += dt
 
-                    if (
-                        has_turn
-                        and elapsed >= turn_blend_start_t
-                        and turn_blend_duration > 0.0
-                    ):
-                        rot_t = self._smoothstep(
-                            (elapsed - turn_blend_start_t)
-                            / turn_blend_duration,
-                        )
-                        self.camera.direction.rotate(
-                            turn_angle * (rot_t - turn_progress),
-                        )
-                        turn_progress = rot_t
+        if (
+            self._rot_elapsed >= self._rot_duration
+            or self._rot_duration <= 0.0
+        ):
+            remaining = self._rot_angle * (1.0 - self._rot_progress)
+            if abs(remaining) > 1e-9:
+                self.camera.direction.rotate(remaining)
+            self._start_walk(self._seg_idx)
+            return
 
-                    time.sleep(self.tick)
+        t = self._smoothstep(self._rot_elapsed / self._rot_duration)
+        self.camera.direction.rotate(
+            self._rot_angle * (t - self._rot_progress),
+        )
+        self._rot_progress = t
 
-                if self._stop.is_set():
-                    return
+    def _update_walk(self, dt: float) -> None:
+        sx, sy = self._walk_start
+        ex, ey = self._walk_end
 
-                self.camera.pos.x = end_x
-                self.camera.pos.y = end_y
+        self._walk_elapsed += dt
+        elapsed = self._walk_elapsed
+        duration = self._walk_duration
 
-                if has_turn and turn_progress < 0.99:
-                    self._rotate(turn_angle * (1.0 - turn_progress), 0.03)
-        finally:
-            self.is_playing = False
+        if elapsed >= duration:
+            self.camera.pos.x = ex
+            self.camera.pos.y = ey
+            self._on_walk_done()
+            return
+
+        t = elapsed / duration if duration > 0.0 else 1.0
+        self.camera.pos.x = sx + (ex - sx) * t
+        self.camera.pos.y = sy + (ey - sy) * t
+
+        # blend turn near the end of the segment
+        if (
+            abs(self._walk_turn_angle) > 1e-3
+            and elapsed >= self._walk_turn_blend_start_t
+            and self._walk_turn_blend_duration > 0.0
+        ):
+            rot_t = self._smoothstep(
+                (elapsed - self._walk_turn_blend_start_t)
+                / self._walk_turn_blend_duration
+            )
+            self.camera.direction.rotate(
+                self._walk_turn_angle * (rot_t - self._walk_turn_progress)
+            )
+            self._walk_turn_progress = rot_t
+
+    def _on_walk_done(self) -> None:
+        remaining_turn = (
+            self._walk_turn_angle * (1.0 - self._walk_turn_progress)
+        )
+        self._seg_idx += 1
+
+        if self._seg_idx >= len(self._segments):
+            if abs(remaining_turn) > 1e-3:
+                self.camera.direction.rotate(remaining_turn)
+            self.stop()
+            return
+
+        if self._walk_turn_progress < 0.99 and abs(remaining_turn) > 1e-3:
+            self._start_rotate(remaining_turn, 0.03, Phase.ROTATE_TURN)
+        else:
+            self._start_walk(self._seg_idx)
