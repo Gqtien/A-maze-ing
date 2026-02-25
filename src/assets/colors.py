@@ -19,10 +19,10 @@ class Color(Enum):
 class ColorPalette(Enum):
     """Color palette for minimap."""
 
-    MAGENTA = b"\xD8\xA8\xD8\xFF"
-    WHITE = b"\xFF\xFF\xFF\xFF"
     CYAN = b"\xD8\xD8\xA8\xFF"
+    WHITE = b"\xFF\xFF\xFF\xFF"
     BLUE = b"\xD8\xA8\xA8\xFF"
+    MAGENTA = b"\xD8\xA8\xD8\xFF"
     RED = b"\xA8\xA8\xD8\xFF"
     GREEN = b"\xA8\xD8\xA8\xFF"
     YELLOW = b"\xA8\xD8\xD8\xFF"

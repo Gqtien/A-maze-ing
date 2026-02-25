@@ -21,13 +21,12 @@ class Playback:
         solution: list[GridCell]
     ) -> None:
         """Initialize the playback."""
-        self.camera = camera
-        self.solution = solution
-        self.tick = 0.002
-        self.speed = 10
-        self.is_playing = False
+        self.camera: Camera = camera
+        self.solution: list[GridCell] = solution
+        self.tick: float = 0.002
+        self.speed: float = 10
+        self.is_playing: bool = False
         self._stop = threading.Event()
-        self._state_lock = threading.Lock()
 
     def stop(self) -> None:
         """Stop the playback."""
@@ -146,11 +145,12 @@ class Playback:
 
     def play_solution(self) -> None:
         """Play the solution."""
-        with self._state_lock:
-            if self.is_playing:
-                return
-            self.is_playing = True
-            self._stop.clear()
+        if self.is_playing:
+            self._stop.set()
+            self.is_playing = not self.is_playing
+            return
+        self.is_playing = True
+        self._stop.clear()
 
         try:
             segments: Segments = self._build_segments()
@@ -184,8 +184,10 @@ class Playback:
                     )
 
                 has_turn = abs(turn_angle) > 1e-3
-                turn_blend_duration: float = (
-                    min(0.15, duration * 0.45) if has_turn else 0.0
+                turn_blend_duration = (
+                    min(0.15, duration * 0.45)
+                    if has_turn else
+                    0.0
                 )
                 turn_blend_start_t = duration - turn_blend_duration
                 turn_progress = 0.0
@@ -227,5 +229,4 @@ class Playback:
                 if has_turn and turn_progress < 0.99:
                     self._rotate(turn_angle * (1.0 - turn_progress), 0.03)
         finally:
-            with self._state_lock:
-                self.is_playing = False
+            self.is_playing = False

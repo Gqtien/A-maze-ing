@@ -408,7 +408,7 @@ class Renderer:
 
         chat_was_open = self.chat_handler.is_open
         self.chat_handler.update()
-        if self.playback.is_playing:
+        if self.playback.is_playing and not chat_was_open:
             keys = self.keyboard_handler.keys_pressed
             move_keys = (
                 self.camera.keys.forward,
