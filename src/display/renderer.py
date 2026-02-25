@@ -19,7 +19,6 @@ from display.drawing import (
     draw_player_sprite,
 )
 from display.playback import Playback
-from core import env_int
 import threading
 import os
 
@@ -132,8 +131,8 @@ class Renderer:
             entry_pos=self.config.get("ENTRY", (0, 0)),
             exit_pos=self.config.get("EXIT", (24, 24)),
             perfect=self.config.get("PERFECT", True),
+            output_file_name=self.config.get("OUTPUT_FILE", "out.txt"),
             seed=self.config.get("SEED"),
-            output_file_name=self.config.get("OUTPUT_FILE"),
             pattern=self.config.get("PATTERN"),
             algo=algo,
         )
@@ -150,7 +149,7 @@ class Renderer:
             self.maze.exit_pos[1] * 2 + 1,
         )
         self.cells_pattern = {
-            (cell.x, cell.y) for cell in self.maze.get_pattern_cells()
+            (cell.x, cell.y) for cell in self.maze.pattern_cells
         }
         self.grid_width = len(self.grid[0])
         self.grid_height = len(self.grid)
@@ -377,7 +376,7 @@ class Renderer:
             if refresh_rate:
                 if self.fps_value >= refresh_rate - 0.5:
                     str += " (Capped)"
-            
+
             put_string(
                 str,
                 10,

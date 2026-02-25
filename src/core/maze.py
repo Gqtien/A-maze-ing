@@ -73,9 +73,9 @@ class Maze:
         height: int,
         entry_pos: tuple[int, int],
         exit_pos: tuple[int, int],
-        perfect: bool | None = None,
+        perfect: bool,
+        output_file_name: str,
         seed: int | None = None,
-        output_file_name: str | None = None,
         pattern: Pattern | None = None,
         algo: str | None = None,
     ) -> None:
@@ -84,7 +84,7 @@ class Maze:
         self.height: int = height
         self.entry_pos: tuple[int, int] = entry_pos
         self.exit_pos: tuple[int, int] = exit_pos
-        self.perfect: bool = True if perfect is None else bool(perfect)
+        self.perfect: bool = bool(perfect)
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
         self.algo: str = (algo or "backtracking").lower()
@@ -94,6 +94,7 @@ class Maze:
             else random.randint(0, 1_000_000)
         )
 
+        self.pattern_cells: set[Cell] = set()
         self._generate()
         self.solution = self.solve()
 
@@ -127,6 +128,7 @@ class Maze:
             ret += ",".join(map(str, pos)) + "\n"
 
         ret += self.cardinal_path(self.solution)
+        ret += "\n"
         return ret
 
     def _generate(self) -> None:
@@ -159,8 +161,8 @@ class Maze:
         digit_width: int = len(pattern_first[0]) if pattern_first else 0
         total_width: int = digit_width * 2 + 1
 
-        # exit if maze is too small
         if self.width < total_width or self.height < digit_height:
+            print("Error: Maze is too small to fit the pattern in its center.")
             return set()
 
         top: int = (self.height - digit_height) // 2
@@ -188,7 +190,8 @@ class Maze:
     def _backtracking(self, rng: random.Random) -> None:
         """Perfect maze via iterative backtracking."""
         stack: list[Cell] = []
-        visited: set[Cell] = self.get_pattern_cells()
+        self.pattern_cells = self.get_pattern_cells()
+        visited: set[Cell] = set(self.pattern_cells)
         start: Cell = self.get_cell(*self.entry_pos)
         stack.append(start)
         visited.add(start)
@@ -209,7 +212,8 @@ class Maze:
 
     def _prim(self, rng: random.Random) -> None:
         """Perfect maze via Prim's algorithm."""
-        in_maze: set[Cell] = set(self.get_pattern_cells())
+        self.pattern_cells = self.get_pattern_cells()
+        in_maze: set[Cell] = set(self.pattern_cells)
         start: Cell = self.get_cell(*self.entry_pos)
         in_maze.add(start)
 
@@ -344,7 +348,7 @@ class Maze:
     def _add_exit_loop(self, rng: random.Random) -> None:
         """Add one shortcut from the exit."""
         exit_cell = self.get_cell(*self.exit_pos)
-        blocked = self.get_pattern_cells()
+        blocked = self.pattern_cells
         cur, prev = exit_cell, None
 
         for _ in range(self.width * self.height):
@@ -464,7 +468,7 @@ class Maze:
 
     def pattern_core_to_grid(self) -> list[tuple[int, int]]:
         """Return grid coords of pattern cells and links only (no outline)."""
-        pattern_cells = self.get_pattern_cells()
+        pattern_cells = self.pattern_cells
         out: list[tuple[int, int]] = []
         for c in pattern_cells:
             out.append((2 * c.x + 1, 2 * c.y + 1))
