@@ -19,7 +19,9 @@ from display.drawing import (
     draw_player_sprite,
 )
 from display.playback import Playback
+from core import env_int
 import threading
+import os
 
 
 class Renderer:
@@ -370,8 +372,14 @@ class Renderer:
                 )
 
         if self.fps:
+            refresh_rate: float = float(os.environ.get("REFRESH_RATE", "0"))
+            str = f"FPS: {self.fps_value:.0f}"
+            if refresh_rate:
+                if self.fps_value >= refresh_rate - 0.5:
+                    str += " (Capped)"
+            
             put_string(
-                f"FPS: {self.fps_value:.0f}",
+                str,
                 10,
                 10,
                 b"\xFF\xFF\xFF\xFF",
