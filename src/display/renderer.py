@@ -6,7 +6,7 @@ import numpy.typing as npt
 from typing import Any
 from pynput import keyboard
 from mlx import Mlx  # type: ignore
-from core import Maze
+from core import Maze, Algo
 from utils import Vec2, Rect
 from input import KeyboardHandler, MouseHandler, ChatHandler
 from assets import Color, ColorPalette, CHAR_GLYPH_H
@@ -123,7 +123,7 @@ class Renderer:
         )
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
 
-    def _generate_maze(self, algo: str = "backtracking") -> Maze:
+    def _generate_maze(self, algo: Algo = Algo.BACKTRACKING) -> Maze:
         """Generate a Maze from current config."""
         return Maze(
             width=self.config.get("WIDTH", 25),
@@ -446,18 +446,19 @@ class Renderer:
 
     def _cmd_reset_maze(self, args: list[str]) -> tuple[str, bool]:
         """Regenerate the maze."""
-        ALGOS = ("backtracking", "prim")
+        ALGOS = ("BACKTRACKING", "PRIM")
         if not args:
             return (
                 f"Please provide an algo: /regen <{'|'.join(ALGOS)}>.",
                 False,
             )
-        algo = args[0].lower().strip()
-        if algo not in ALGOS:
+        algo_str: str = args[0].upper().strip()
+        if algo_str not in ALGOS:
             return (
                 f"Usage: /regen <{'|'.join(ALGOS)}>.",
                 False,
             )
+        algo: Algo = Algo[algo_str]
         self.playback.stop()
         self.maze = self._generate_maze(algo=algo)
         self._set_maze_state()
@@ -466,7 +467,7 @@ class Renderer:
         self._init_minimap()
         self._spawn_camera()
         self._init_playback()
-        return (f"Maze regenerated with {algo}", True)
+        return (f"Maze regenerated with {algo_str}", True)
 
     def _cmd_color(self, args: list[str]) -> tuple[str, bool]:
         """Cycle wall/pattern/solution color through ColorPalette."""

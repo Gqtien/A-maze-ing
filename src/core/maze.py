@@ -1,8 +1,14 @@
 import random
 from enum import Enum
-from typing import Optional
 from assets import DIGITS
 from core.config import Pattern
+
+
+class Algo(Enum):
+    """Maze generation alogithm."""
+
+    PRIM = 1
+    BACKTRACKING = 2
 
 
 class Wall(Enum):
@@ -73,30 +79,26 @@ class Maze:
         height: int,
         entry_pos: tuple[int, int],
         exit_pos: tuple[int, int],
-        perfect: bool,
-        output_file_name: str,
+        output_file_name: str | None = None,
+        perfect: bool = True,
         seed: int | None = None,
         pattern: Pattern | None = None,
-        algo: str | None = None,
+        algo: Algo = Algo.BACKTRACKING,
     ) -> None:
         """Maze constructor."""
         self.width: int = width
         self.height: int = height
         self.entry_pos: tuple[int, int] = entry_pos
         self.exit_pos: tuple[int, int] = exit_pos
-        self.perfect: bool = bool(perfect)
+        self.perfect: bool = perfect
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
-        self.algo: str = (algo or "backtracking").lower()
-        self.seed: int = (
-            seed
-            if seed is not None
-            else random.randint(0, 1_000_000)
-        )
+        self.algo: Algo = algo
+        self.seed: int = seed if seed else random.randint(0, 1_000_000)
 
         self.pattern_cells: set[Cell] = set()
         self._generate()
-        self.solution = self.solve()
+        self.solution: list[Cell] = self.solve()
 
         if output_file_name is not None:
             self.save_to_file(output_file_name)
@@ -112,10 +114,10 @@ class Maze:
         return minimap
 
     def __repr__(self) -> str:
-        """
-            Hex ascii map,
-            entry and exit positions,
-            shortest valid path from entry to exit.
+        """Hex ascii map.
+
+        entry and exit positions,
+        shortest valid path from entry to exit.
         """
         ret: str = ""
         for y in range(self.height):
@@ -143,9 +145,9 @@ class Maze:
         rng = random.Random(self.seed)
 
         match self.algo:
-            case "prim":
+            case Algo.PRIM:
                 self._prim(rng)
-            case _:
+            case Algo.BACKTRACKING:
                 self._backtracking(rng)
 
         if not self.perfect:
@@ -237,9 +239,9 @@ class Maze:
         rows, cols = len(self._maze), len(self._maze[0])
 
         distances = [[float('inf')] * cols for _ in range(rows)]
-        parents: list[list[Optional[tuple[int, int]]]] = (
-            [[None] * cols for _ in range(rows)]
-        )
+        parents: list[list[tuple[int, int] | None]] = [
+            [None] * cols for _ in range(rows)
+        ]
         visited = [[False] * cols for _ in range(rows)]
 
         start_x, start_y = self.entry_pos
@@ -248,7 +250,7 @@ class Maze:
 
         while True:
             min_dist = float('inf')
-            current: Optional[tuple[int, int]] = None
+            current: tuple[int, int] | None = None
             for y in range(rows):
                 for x in range(cols):
                     if not visited[y][x] and distances[y][x] < min_dist:
@@ -266,7 +268,8 @@ class Maze:
                 while (x, y) != (start_x, start_y):
                     path.append(self.get_cell(x, y))
                     parent = parents[y][x]
-                    assert parent is not None
+                    if parent is None:
+                        return []
                     x, y = parent
                 path.append(self.get_cell(start_x, start_y))
                 path.reverse()
@@ -318,30 +321,31 @@ class Maze:
         )
 
     def _is_open_between(self, a: Cell, b: Cell) -> bool:
-        """
-            True if there is already an opening between adjacent cells a and b.
+        """Return true if there is an opening between a and b.
+
+        assumes a and b are adjacent.
         """
         dx, dy = b.x - a.x, b.y - a.y
         match dx, dy:
             case 1, 0:
                 return (
-                    (a.wall & Wall.EAST.value) == 0
-                    and (b.wall & Wall.WEST.value) == 0
+                    (a.wall & Wall.EAST.value) == 0 and
+                    (b.wall & Wall.WEST.value) == 0
                 )
             case -1, 0:
                 return (
-                    (a.wall & Wall.WEST.value) == 0
-                    and (b.wall & Wall.EAST.value) == 0
+                    (a.wall & Wall.WEST.value) == 0 and
+                    (b.wall & Wall.EAST.value) == 0
                 )
             case 0, 1:
                 return (
-                    (a.wall & Wall.SOUTH.value) == 0
-                    and (b.wall & Wall.NORTH.value) == 0
+                    (a.wall & Wall.SOUTH.value) == 0 and
+                    (b.wall & Wall.NORTH.value) == 0
                 )
             case 0, -1:
                 return (
-                    (a.wall & Wall.NORTH.value) == 0
-                    and (b.wall & Wall.SOUTH.value) == 0
+                    (a.wall & Wall.NORTH.value) == 0 and
+                    (b.wall & Wall.SOUTH.value) == 0
                 )
         return False
 
@@ -402,16 +406,17 @@ class Maze:
         return ret
 
     def get_accessible_neighbors(self, cell: Cell) -> list[Cell]:
+        """Return a list of accessible adjacent cells."""
         neighbors = []
         x, y = cell.x, cell.y
-        if not cell.wall & 0x1:  # North
-            neighbors.append(self.get_cell(x, y-1))
-        if not cell.wall & 0x2:  # East
-            neighbors.append(self.get_cell(x+1, y))
-        if not cell.wall & 0x4:  # South
-            neighbors.append(self.get_cell(x, y+1))
-        if not cell.wall & 0x8:  # West
-            neighbors.append(self.get_cell(x-1, y))
+        if not (cell.wall & 0x1):  # North
+            neighbors.append(self.get_cell(x, y - 1))
+        if not (cell.wall & 0x2):  # East
+            neighbors.append(self.get_cell(x + 1, y))
+        if not (cell.wall & 0x4):  # South
+            neighbors.append(self.get_cell(x, y + 1))
+        if not (cell.wall & 0x8):  # West
+            neighbors.append(self.get_cell(x - 1, y))
         return neighbors
 
     def get_cell(self, x: int, y: int) -> Cell:
@@ -453,6 +458,7 @@ class Maze:
         return grid
 
     def solution_to_grid(self) -> list[tuple[int, int]]:
+        """Convert a list of Cell to a grid tracing solution path."""
         solution_grid = []
         for cell, next_cell in zip(self.solution, self.solution[1:]):
             cx, cy = 2 * cell.x + 1, 2 * cell.y + 1
@@ -461,8 +467,10 @@ class Maze:
             solution_grid.append((cx, cy))
             mx, my = (cx + nx) // 2, (cy + ny) // 2
             solution_grid.append((mx, my))
+        if not self.solution:
+            return []
         last = self.solution[-1]
-        solution_grid.append((2*last.x + 1, 2*last.y + 1))
+        solution_grid.append((2 * last.x + 1, 2 * last.y + 1))
 
         return solution_grid
 
