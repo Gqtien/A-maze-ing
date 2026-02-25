@@ -1,7 +1,6 @@
 import string
 import time
 from collections.abc import Callable
-from typing import Set
 from pynput import keyboard
 from input import KeyboardHandler
 
@@ -29,7 +28,7 @@ class ChatHandler:
         self._command_displays: dict[str, str] = {}
         self._slash_was_pressed: bool = False
         self._escape_was_pressed: bool = False
-        self._prev_keys_pressed: Set[str | keyboard.Key] = set()
+        self._prev_keys_pressed: set[str | keyboard.Key] = set()
         self.default_color: bytes = b"\xFF\xFF\xFF\xFF"
         self.error_color: bytes = b"\x00\x00\xFF\xFF"
         self._command_history: list[str] = []
@@ -112,7 +111,7 @@ class ChatHandler:
             self._cursor_last_toggle_ns = now_ns
 
     def _process_new_keys(
-        self, keys_pressed: Set[str | keyboard.Key]
+        self, keys_pressed: set[str | keyboard.Key]
     ) -> None:
         new_presses = keys_pressed - self._prev_keys_pressed
         for key in new_presses:

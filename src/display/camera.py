@@ -7,6 +7,8 @@ from core import Mode
 
 def face_open_corridor(grid: list[list[bool]], pos: Vec2) -> Vec2:
     """First cardinal (E/W/N/S) from pos that points to a non-wall cell."""
+    if not grid or not grid[0]:
+        return Vec2(1, 0)
     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
         nx, ny = int(pos.x + dx), int(pos.y + dy)
         if 0 <= ny < len(grid) and 0 <= nx < len(grid[0]) and not grid[ny][nx]:

@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from typing import Any, Dict, NamedTuple
+from typing import Any, NamedTuple
 
 
 class Mode:
@@ -137,7 +137,7 @@ def cast_value(value: str, type: type) -> Any:
         raise ValueError(f"Invalid value for type {type}: {value!r}")
 
 
-def validate_bounds(config: Dict[str, Any]) -> None:
+def validate_bounds(config: dict[str, Any]) -> None:
     if not all(key in config for key in ("WIDTH", "HEIGHT", "ENTRY", "EXIT")):
         return
 
@@ -167,14 +167,14 @@ def validate_bounds(config: Dict[str, Any]) -> None:
         )
 
 
-def parse_config(path: str) -> Dict[str, Any]:
+def parse_config(path: str) -> dict[str, Any]:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Config file not found: {path}")
     if os.path.isdir(path):
         raise IsADirectoryError(f"Config path is a directory, "
                                 f"not a file: {path}")
 
-    config: Dict[str, Any] = {}
+    config: dict[str, Any] = {}
 
     try:
         with open(path, "r", encoding="utf-8") as file:

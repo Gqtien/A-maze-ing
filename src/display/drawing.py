@@ -52,6 +52,8 @@ def put_pixel(
     line_size: int,
 ) -> None:
     """Set one pixel in a buffer."""
+    if line_size <= 0:
+        return
     # Skip out-of-bounds pixels
     if x < 0 or y < 0:
         return

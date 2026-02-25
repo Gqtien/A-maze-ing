@@ -164,8 +164,10 @@ class Maze:
         total_width: int = digit_width * 2 + 1
 
         if self.width < total_width or self.height < digit_height:
-            print("Error: Maze is too small to fit the pattern in its center.")
-            return set()
+            raise ValueError(
+                f"Maze too small for pattern: got {self.width}x{self.height}, "
+                f"needs at least {total_width}x{digit_height}"
+            )
 
         top: int = (self.height - digit_height) // 2
         left_first: int = (self.width - total_width) // 2
@@ -236,6 +238,8 @@ class Maze:
 
     def solve(self) -> list[Cell]:
         """Dijkstra's algo."""
+        if not self._maze or not self._maze[0]:
+            return []
         rows, cols = len(self._maze), len(self._maze[0])
 
         distances = [[float('inf')] * cols for _ in range(rows)]
@@ -407,20 +411,25 @@ class Maze:
 
     def get_accessible_neighbors(self, cell: Cell) -> list[Cell]:
         """Return a list of accessible adjacent cells."""
-        neighbors = []
+        neighbors: list[Cell] = []
         x, y = cell.x, cell.y
-        if not (cell.wall & 0x1):  # North
-            neighbors.append(self.get_cell(x, y - 1))
-        if not (cell.wall & 0x2):  # East
-            neighbors.append(self.get_cell(x + 1, y))
-        if not (cell.wall & 0x4):  # South
-            neighbors.append(self.get_cell(x, y + 1))
-        if not (cell.wall & 0x8):  # West
-            neighbors.append(self.get_cell(x - 1, y))
+        if not (cell.wall & 0x1) and y > 0:  # North
+            neighbors.append(self._maze[y - 1][x])
+        if not (cell.wall & 0x2) and x + 1 < self.width:  # East
+            neighbors.append(self._maze[y][x + 1])
+        if not (cell.wall & 0x4) and y + 1 < self.height:  # South
+            neighbors.append(self._maze[y + 1][x])
+        if not (cell.wall & 0x8) and x > 0:  # West
+            neighbors.append(self._maze[y][x - 1])
         return neighbors
 
     def get_cell(self, x: int, y: int) -> Cell:
         """Return cell at (x, y)."""
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            raise IndexError(
+                f"Cell ({x}, {y}) out of bounds for "
+                f"{self.width}x{self.height}"
+            )
         return self._maze[y][x]
 
     def get_maze(self) -> list[list[Cell]]:
@@ -501,8 +510,5 @@ class Maze:
 
     def save_to_file(self, filename: str) -> None:
         """Save the hex representation of the maze to file."""
-        try:
-            with open(filename, "w") as file:
-                file.write(repr(self))
-        except Exception as e:
-            print(f"Error while trying to save maze to {filename}: {e}")
+        with open(filename, "w", encoding="utf-8") as file:
+            file.write(repr(self))

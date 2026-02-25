@@ -149,6 +149,8 @@ class Playback:
             self._stop.set()
             self.is_playing = not self.is_playing
             return
+        if len(self.solution) < 2:
+            return
         self.is_playing = True
         self._stop.clear()
 

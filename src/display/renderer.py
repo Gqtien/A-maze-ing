@@ -1,26 +1,26 @@
-from functools import lru_cache
+import os
 import signal
+import threading
 import time
+from functools import lru_cache
+from typing import Any
 import numpy
 import numpy.typing as npt
-from typing import Any
-from pynput import keyboard
 from mlx import Mlx  # type: ignore
-from core import Maze, Algo
-from utils import Vec2, Rect
-from input import KeyboardHandler, MouseHandler, ChatHandler
-from assets import Color, ColorPalette, CHAR_GLYPH_H
+from pynput import keyboard
+from assets import CHAR_GLYPH_H, Color, ColorPalette
+from core import Algo, Maze
 from display.camera import Camera, face_open_corridor
-from display.raycasting import cast_ray
 from display.drawing import (
     draw_horizontal_line,
+    draw_player_sprite,
     draw_rect,
     put_string,
-    draw_player_sprite,
 )
 from display.playback import Playback
-import threading
-import os
+from display.raycasting import cast_ray
+from input import ChatHandler, KeyboardHandler, MouseHandler
+from utils import Rect, Vec2
 
 
 class Renderer:
@@ -67,9 +67,12 @@ class Renderer:
         self.pattern_core_color: bytes = self._lighten_color(
             self.pattern_color
         )
-        self.solution_color: bytes = self.wall_palette[
-            self.wall_color_index + 1
-        ].value
+        next_palette_idx = self.wall_color_index + 1
+        self.solution_color: bytes = (
+            self.wall_palette[next_palette_idx].value
+            if next_palette_idx < len(self.wall_palette)
+            else ColorPalette.WHITE.value
+        )
 
         self._init_mlx()
 
@@ -158,8 +161,13 @@ class Renderer:
         self.grid_pattern_core = self.maze.pattern_core_to_grid()
         self.show_solution = False
 
+        if not self.grid or not self.grid[0]:
+            raise ValueError("Maze grid is empty")
+
     def _compute_minimap(self) -> None:
         """Set minimap cell size and offsets."""
+        if self.grid_width <= 0 or self.grid_height <= 0:
+            raise ValueError("Grid dimensions must be positive")
         self.minimap_cell_size = max(
             1,
             min(
@@ -356,7 +364,7 @@ class Renderer:
             ]
             numpy.multiply(zone, 0.4, out=self.chat_bg_buffer)
             zone[:] = self.chat_bg_buffer
-            line_height = CHAR_GLYPH_H
+            line_height = CHAR_GLYPH_H or 20
             grey_zone_height = self.height - 20 - self.height // 2
             max_message_lines = max(0, grey_zone_height // line_height)
             lines = self.chat_handler.get_overlay_lines(max_message_lines)
@@ -372,13 +380,11 @@ class Renderer:
 
         if self.fps:
             refresh_rate: float = float(os.environ.get("REFRESH_RATE", "0"))
-            str = f"FPS: {self.fps_value:.0f}"
-            if refresh_rate:
-                if self.fps_value >= refresh_rate - 0.5:
-                    str += " (Capped)"
-
+            fps_str = f"FPS: {self.fps_value:.0f}"
+            if refresh_rate and self.fps_value >= refresh_rate - 0.5:
+                fps_str += " (Capped)"
             put_string(
-                str,
+                fps_str,
                 10,
                 10,
                 b"\xFF\xFF\xFF\xFF",
