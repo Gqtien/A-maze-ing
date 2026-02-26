@@ -129,7 +129,7 @@ class Renderer:
         )
         self.mlx.mlx_loop_hook(self.mlx_ptr, self.loop, param=None)
 
-    def _generate_maze(self, algo: Algo = Algo.BACKTRACKING) -> Maze:
+    def _generate_maze(self, algo: Algo) -> Maze:
         """Generate a Maze from current config."""
         return Maze(
             width=self.config.get("WIDTH", 25),

@@ -1,3 +1,4 @@
+from ctypes import cast
 import os
 from enum import Enum, auto
 from typing import Any, NamedTuple
@@ -246,21 +247,23 @@ def parse_config(path: str) -> dict[str, Any]:
                             f"Value too high for {key!r}: "
                             f"max {max_val}, got {value!r}"
                         )
-                    if key in ("WIDTH", "HEIGHT") and casted_value < 1:
-                        raise ValueError(
-                            f"Value too low for {key!r}: must be >= 1, "
-                            f"got {value!r}"
-                        )
-                    if key in ("WIN_W", "WIN_H", "FOV") and casted_value < 1:
-                        raise ValueError(
-                            f"Value too low for {key!r}: must be >= 1, "
-                            f"got {value!r}"
-                        )
-                    if key in ("WIN_W", "WIN_H") and casted_value < 4:
-                        raise ValueError(
-                            f"Value too low for {key!r}: must be >= 4 "
-                            f"(minimap needs non-zero size), got {value!r}"
-                        )
+                if key in (
+                    "WIDTH",
+                    "HEIGHT",
+                    "WIN_W",
+                    "WIN_H",
+                    "PLAYBACK_SPEED"
+                ) and casted_value < 1:
+                    raise ValueError(
+                        f"Value too low for {key!r}: must be >= 1, "
+                        f"got {value!r}"
+                    )
+
+                if key in ("WIN_W", "WIN_H") and casted_value < 4:
+                    raise ValueError(
+                        f"Value too low for {key!r}: must be >= 4 "
+                        f"(minimap needs non-zero size), got {value!r}"
+                    )
 
                 config[key] = casted_value
             validate_bounds(config)
