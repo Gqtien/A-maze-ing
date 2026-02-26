@@ -1,14 +1,7 @@
 import random
-from enum import Enum, auto
+from enum import Enum
 from assets import DIGITS
-from core.config import Pattern
-
-
-class Algo(Enum):
-    """Maze generation alogithm."""
-
-    PRIM = auto()
-    BACKTRACKING = auto()
+from core.config import Pattern, Algo
 
 
 class Wall(Enum):

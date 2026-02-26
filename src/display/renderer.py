@@ -37,7 +37,9 @@ class Renderer:
         self.height: int = self.config.get("WIN_H", 720)
         self.title: str = self.config.get("WIN_TITLE", "A-Maze-Ing")
         self.fps: bool = self.config.get("FPS", True)
-        self.maze: Maze = self._generate_maze()
+        self.maze: Maze = self._generate_maze(
+            algo=self.config.get("ALGO", Algo.BACKTRACKING)
+        )
         self._set_maze_state()
 
         self.keyboard_handler = KeyboardHandler()
@@ -47,20 +49,22 @@ class Renderer:
         self.chat_handler = ChatHandler()
         self._esc_was_pressed: bool = False
         self.chat_handler.register_command(
-            "regen", self._cmd_reset_maze, "regen <algo>"
+            "regen", self._cmd_reset_maze, "regen <algorithm>"
         )
         self.chat_handler.register_command("solution", self._cmd_toggle_path)
         self.chat_handler.register_command(
             "play",
             self._cmd_play_solution,
-            "play <speed=2.5>",
+            "play <speed>",
         )
         self.chat_handler.register_command("mouse", self._cmd_toggle_mouse)
         self.chat_handler.register_command("color", self._cmd_color)
         self.chat_handler.register_command("fps", self._cmd_toggle_fps)
 
         self.wall_palette: list[ColorPalette] = list(ColorPalette)
-        self.wall_color_index: int = 0
+        self.wall_color_index: int = self.wall_palette.index(
+            self.config.get("COLOR", ColorPalette.CYAN)
+        ) or 1
         self.wall_color: bytes = self.wall_palette[self.wall_color_index].value
         self.pattern_color: bytes = self._darken_color(self.wall_color)
         self.pattern_core_color: bytes = self._lighten_color(
@@ -158,7 +162,7 @@ class Renderer:
         self.grid_solution_cells = self.maze.solution_to_grid()
         self.grid_pattern_cells = self.maze.pattern_to_grid()
         self.grid_pattern_core = self.maze.pattern_core_to_grid()
-        self.show_solution = False
+        self.show_solution = self.config.get("SOLUTION", False)
 
         if not self.grid or not self.grid[0]:
             raise ValueError("Maze grid is empty")
@@ -452,16 +456,16 @@ class Renderer:
 
     def _cmd_reset_maze(self, args: list[str]) -> tuple[str, bool]:
         """Regenerate the maze."""
-        ALGOS = ("BACKTRACKING", "PRIM")
         if not args:
             return (
-                f"Please provide an algo: /regen <{'|'.join(ALGOS)}>.",
+                "Please provide an algorithm: "
+                f"/regen <{'|'.join(Algo._member_names_)}>.",
                 False,
             )
         algo_str: str = args[0].upper().strip()
-        if algo_str not in ALGOS:
+        if algo_str not in Algo._member_names_:
             return (
-                f"Usage: /regen <{'|'.join(ALGOS)}>.",
+                f"Usage: /regen <{'|'.join(Algo._member_names_)}>.",
                 False,
             )
         algo: Algo = Algo[algo_str]
@@ -473,7 +477,7 @@ class Renderer:
         self._init_minimap()
         self._spawn_camera()
         self._init_playback()
-        return (f"Maze regenerated with {algo_str}", True)
+        return (f"Maze regenerated with {algo_str}.", True)
 
     def _cmd_color(self, args: list[str]) -> tuple[str, bool]:
         """Cycle wall/pattern/solution color through ColorPalette."""
@@ -517,17 +521,17 @@ class Renderer:
             return ("Stopped playing the solution", True)
 
         if len(args) > 1:
-            return ("Usage: /play <speed=2.5>", False)
+            return ("Usage: /play <speed>", False)
 
-        speed = 2.5
+        speed = self.config.get("PLAYBACK_SPEED", 2.5)
         if args:
             try:
                 speed = float(args[0])
             except ValueError:
-                return ("Usage: /play <speed=2.5>", False)
+                return ("Usage: /play <speed>", False)
 
         if speed <= 0.0:
-            return ("Speed must be > 0. Usage: /play <speed=2.5>", False)
+            return ("Speed must be > 0. Usage: /play <speed>", False)
 
         self.playback.speed = speed
         self.playback.play_solution()

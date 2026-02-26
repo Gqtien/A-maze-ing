@@ -1,5 +1,5 @@
-from .maze import Maze, Cell, Algo
-from .config import parse_config, env_int, Pattern, Mode
+from .maze import Maze, Cell
+from .config import parse_config, env_int, Algo, Pattern, Mode
 
 
 __all__ = [
@@ -8,6 +8,7 @@ __all__ = [
     "Cell",
     "parse_config",
     "env_int",
+    "Algo",
     "Pattern",
     "Mode",
 ]

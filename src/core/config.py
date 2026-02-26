@@ -1,10 +1,19 @@
 import os
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, NamedTuple
+from assets import ColorPalette
+
+
+class Algo(Enum):
+    """Maze generation alogithm."""
+
+    PRIM = auto()
+    BACKTRACKING = auto()
 
 
 class Mode:
     """Key layout"""
+    _member_names_: list[str] = ["4 chars"]
 
     class KeyBindings(NamedTuple):
         """Keys for forward, left, back, right."""
@@ -42,6 +51,8 @@ class Mode:
 
 class Pattern:
     """Two-digit pattern"""
+    _member_names_: list[str] = ["2 digits"]
+
     class PatternDigits(NamedTuple):
         """Names of the two Digits enum members for patterns."""
         first: str
@@ -72,22 +83,29 @@ class Pattern:
         return self._digits
 
 
-class ConfigKey(Enum):
+class MandatoryConfigKey(Enum):
     WIDTH = int
     HEIGHT = int
     ENTRY = tuple
     EXIT = tuple
-    PERFECT = bool
-    SEED = int
     OUTPUT_FILE = str
+    PERFECT = bool
+
+
+class OptionalConfigKey(Enum):
+    SEED = int
     WIN_W = int
     WIN_H = int
     WIN_TITLE = str
     FOV = int
+    ALGO = Algo
+    SOLUTION = bool
     MODE = Mode
+    COLOR = ColorPalette
     PATTERN = Pattern
     FPS = bool
     MOUSE = bool
+    PLAYBACK_SPEED = float
 
 
 def env_int(name: str, default: str) -> int:
@@ -109,6 +127,8 @@ def cast_value(value: str, type: type) -> Any:
     try:
         if type is int:
             return int(value)
+        elif type is float:
+            return float(value)
         elif type is bool:
             v = value.lower()
             if v == "true":
@@ -127,6 +147,10 @@ def cast_value(value: str, type: type) -> Any:
                     f"got {len(parts)}"
                 )
             return tuple(map(int, parts))
+        elif type is Algo:
+            return Algo[value.strip().upper()]
+        elif type is ColorPalette:
+            return ColorPalette[value.strip().upper()]
         elif type is Pattern:
             return Pattern(value.strip())
         elif type is Mode:
@@ -190,20 +214,30 @@ def parse_config(path: str) -> dict[str, Any]:
                 key = key.strip()
                 value = value.strip()
 
-                if key not in ConfigKey.__members__:
+                if (
+                    key not in MandatoryConfigKey.__members__ and
+                    key not in OptionalConfigKey.__members__
+                ):
                     raise ValueError(f"Unknown config parameter: {key!r}")
 
-                expected_type = ConfigKey[key].value
+                if key in MandatoryConfigKey.__members__:
+                    expected_type = MandatoryConfigKey[key].value
+                else:
+                    expected_type = OptionalConfigKey[key].value
+
                 try:
                     casted_value = cast_value(value, expected_type)
                 except ValueError as e:
-                    type_name = getattr(
-                        expected_type, "__name__", repr(expected_type)
-                    )
-                    raise ValueError(
-                        f"Invalid value for {key!r}: "
-                        f"expected {type_name}, got {value!r}"
-                    ) from e
+                    msg = f"Invalid value for {key!r}: "
+                    if hasattr(expected_type, "_member_names_"):
+                        opts = ', '.join(expected_type._member_names_).lower()
+                        msg += f"expected {expected_type.__name__} "
+                        msg += f"({opts}), got {value!r}"
+                        raise ValueError(msg) from e
+                    else:
+                        msg += f"expected {expected_type.__name__}, "
+                        msg += f"got {value!r}"
+                        raise ValueError(msg) from e
 
                 if key in Extremum.__members__:
                     max_val = Extremum[key].value
@@ -229,7 +263,19 @@ def parse_config(path: str) -> dict[str, Any]:
                         )
 
                 config[key] = casted_value
-                validate_bounds(config)
+            validate_bounds(config)
+
+            missing_keys = [
+                key for key in MandatoryConfigKey.__members__
+                if key not in config or config[key] is None
+            ]
+
+            if missing_keys:
+                raise ValueError(
+                    "Missing mandatory config parameter"
+                    f"{'s' if len(missing_keys) > 1 else ''}: "
+                    f"{', '.join(missing_keys)}"
+                )
     except PermissionError:
         raise PermissionError(
             f"Cannot read config file (permission denied): {path}"
