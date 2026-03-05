@@ -81,7 +81,14 @@ $(ARGS):
 	@:
 
 define MAZEGEN
-cat src/assets/digits.py > mazegen.py && printf '\n' >> mazegen.py && printf 'from typing import NamedTuple\n' >> mazegen.py && awk '/^class Pattern/ {flag=1} flag { if ($$0 ~ /^class [A-Za-z_]/ && $$0 !~ /^class Pattern/) exit; print }' src/core/config.py >> mazegen.py && printf '\n' >> mazegen.py && sed -e '/from src\.assets import DIGITS/d' -e '/from src\.core\.config import Pattern/d' src/core/maze.py >> mazegen.py && printf '\n\n__all__ = ["Maze"]\n' >> mazegen.py
+	cat src/assets/digits.py > mazegen.py
+	printf '\n' >> mazegen.py
+	printf 'from typing import NamedTuple\n' >> mazegen.py
+	printf 'from enum import Enum, auto\n' >> mazegen.py
+	(awk '/^class (Pattern|Algo)/ {in_class=1} in_class {print; while(getline > 0 && $$0 !~ /^class [A-Za-z_]/) print; in_class=0}' src/core/config.py) >> mazegen.py
+	printf '\n' >> mazegen.py
+	sed -e '/from assets import DIGITS/d' -e '/from core\.config import Pattern, Algo/d' -e '/from enum import Enum/d' src/core/maze.py >> mazegen.py
+	printf '\n\n__all__ = ["Maze"]\n' >> mazegen.py
 endef
 
 .PHONY: $(CMDS) $(ARGS)
