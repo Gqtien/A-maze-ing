@@ -217,3 +217,4 @@ __marimo__/
 .zed
 out.txt
 mazegen.py
+*.prof

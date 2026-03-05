@@ -3,8 +3,12 @@ VENV_DIR	?= .venv
 BIN			:= $(VENV_DIR)/bin
 PIP			:= $(BIN)/pip
 
-CMDS := usage install run compile profile clean lint lint-strict
-ARGS := $(filter-out $(CMDS),$(MAKECMDGOALS))
+MAKEFLAGS	:= --no-print-directory
+
+CMDS		:= usage install run compile profile clean lint lint-strict
+ARGS		:= $(filter-out $(CMDS),$(MAKECMDGOALS))
+DEPS		:= numpy pynput types-pynput
+DEPSFLAG	:= $(VENV_DIR)/.installed
 
 export SCREEN_WIDTH := $(shell xrandr --current | grep '*' | uniq | awk '{print $1}' | cut -d 'x' -f1)
 export SCREEN_HEIGHT := $(shell xrandr --current | grep '*' | uniq | awk '{print $1}' | cut -d 'x' -f2 | cut -d ' ' -f1)
@@ -18,17 +22,32 @@ usage:
 		echo "  - $(cmd) $(if $(filter run profile,$(cmd)),<config_file>)";)
 
 install:
+	@$(MAKE) clean
 	@$(PYTHON) -m venv $(VENV_DIR)
-	@$(PIP) install --upgrade pip
-	@$(PIP) install -r requirements.txt
-	@$(PIP) install src/assets/mlx-2.2-py3-none-any.whl
-	@$(PIP) install flake8 mypy
-	@echo "Environment created."
-	@echo "Run: source $(VENV_DIR)/bin/activate"
-	@echo "Then: make run default_config.txt"
+	@$(PIP) install --upgrade pip --quiet
+	@$(PIP) install $(DEPS) --quiet
+	@$(PIP) install src/assets/mlx-2.2-py3-none-any.whl --quiet
+	@$(PIP) install flake8 mypy --quiet
+	@touch $(DEPSFLAG)
+	@echo "Everything has been installed."
+	@echo "You can now run 'make run default_config.txt'"
 
 run:
-	@$(PYTHON) src/a_maze_ing.py $(ARGS) || true
+	@if [ ! -x "$(BIN)/python" -o ! -x "$(BIN)/pip" ]; then \
+	    echo "Virtual environment not found. Installing..."; \
+	    $(MAKE) install > /dev/null 2>&1; \
+	fi
+	@if [ ! -f "$(DEPSFLAG)" ]; then \
+	    echo "Checking dependencies..."; \
+	    missing=$$(for pkg in $(DEPS) mlx; do \
+	        $(BIN)/pip list --format=freeze | grep -i "^$${pkg}==" >/dev/null || echo $$pkg; \
+	    done); \
+	    if [ -n "$$missing" ]; then \
+	        echo "Missing dependencies. Installing..."; \
+	        $(MAKE) install > /dev/null 2>&1; \
+	    fi; \
+	fi
+	@$(BIN)/$(PYTHON) src/a_maze_ing.py $(ARGS)
 
 compile:
 	@$(PYTHON) -m venv $(VENV_DIR)
@@ -38,24 +57,25 @@ compile:
 	@rm -f mazegen.py
 
 profile:
-	@$(PYTHON) -m cProfile src/a_maze_ing.py $(ARGS) || true
+	@$(PYTHON) -m venv $(VENV_DIR)
+	@$(PIP) install snakeviz --quiet
+	@$(BIN)/$(PYTHON) -m cProfile -o profile.prof src/a_maze_ing.py $(ARGS) || true
+	@$(BIN)/$(PYTHON) -m snakeviz profile.prof
 
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
 	@find . -type d -name ".mypy_cache" -exec rm -rf {} +
 	@find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	@rm -rf $(VENV_DIR)
-	@rm -rf dist
-	@rm -rf mazegen.egg-info
-	@rm -f out.txt
+	@rm -rf $(VENV_DIR) dist mazegen. egg-info
+	@rm -f out.txt profile.prof $(DEPSFLAG)
 
 lint:
-	@flake8 src || true
-	@mypy src --exclude 'libs' --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs || true
+	@$(BIN)/$(PYTHON) -m flake8 src || true
+	@$(BIN)/$(PYTHON) -m mypy src || true
 
 lint-strict:
-	@flake8 src || true
-	@mypy src --strict || true
+	@$(BIN)/$(PYTHON) -m flake8 src || true
+	@$(BIN)/$(PYTHON) -m mypy src --strict || true
 
 $(ARGS):
 	@:
