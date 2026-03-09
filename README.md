@@ -162,3 +162,10 @@ $ python3
 
 <a name="contributions"></a>
 ## `👥` | Contributions
+
+### Team Roles
+### Project Planning & Evolution
+• The maze generation algorithm you chose.
+• Why you chose this algorithm. 
+### Successes & Improvements
+### Used tools
