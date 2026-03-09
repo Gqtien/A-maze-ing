@@ -151,8 +151,10 @@ def cast_value(value: str, target: type) -> Any:
                 f"got {len(parts)}"
             )
         return tuple(map(int, parts))
-    elif target in (Algo, ColorPalette):
-        return target[value.strip().upper()]
+    elif target is ColorPalette:
+        return ColorPalette[value.strip().upper()]
+    elif target is Algo:
+        return Algo[value.strip().upper()]
     elif target in (Pattern, Mode):
         return target(value.strip())
     else:
