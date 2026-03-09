@@ -12,6 +12,8 @@ Segments: TypeAlias = list[Segment]
 
 
 class Phase(Enum):
+    """States of the playback."""
+
     IDLE = auto()
     EASE_TO_START = auto()
     ROTATE_INITIAL = auto()

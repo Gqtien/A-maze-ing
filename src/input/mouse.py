@@ -4,14 +4,18 @@ from core import env_int
 
 
 class MouseHandler:
+    """Handler for the mouse."""
+
     _instance: "MouseHandler | None" = None
 
     def __new__(cls) -> "MouseHandler":
+        """Create a new instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self) -> None:
+        """Init."""
         if getattr(self, "_initialized", False):
             return
 
@@ -33,6 +37,7 @@ class MouseHandler:
         self._initialized = True
 
     def _on_move(self, x: int, y: int) -> None:
+        """On move."""
         if not self.hook or self.mouse is None:
             return
 
@@ -46,9 +51,11 @@ class MouseHandler:
             self.mouse.position = (self.center_x, self.center_y)
 
     def peek_delta(self) -> tuple[int, int]:
+        """Peek delta."""
         return (self.delta_x, self.delta_y)
 
     def consume_delta(self) -> tuple[int, int]:
+        """Consume delta."""
         dx = self.delta_x
         dy = self.delta_y
         self.delta_x = 0
@@ -56,6 +63,7 @@ class MouseHandler:
         return dx, dy
 
     def toggle(self) -> None:
+        """Toggle."""
         self.hook = not self.hook
 
         if self.hook:

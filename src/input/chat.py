@@ -20,6 +20,7 @@ class ChatHandler:
     """Handles chat overlay and /commands."""
 
     def __init__(self) -> None:
+        """Init."""
         self.keyboard_handler: KeyboardHandler = KeyboardHandler()
         self.is_open: bool = False
         self.messages: list[tuple[str, bytes]] = []
@@ -39,6 +40,7 @@ class ChatHandler:
         self._register_builtins()
 
     def _register_builtins(self) -> None:
+        """Register builtins."""
         def help_cmd(_args: list[str]) -> CommandResult:
             names = ", ".join(
                 f"/{self._command_displays.get(n, n)}"
@@ -76,6 +78,7 @@ class ChatHandler:
         return last + [(self.get_display_text(), self.default_color)]
 
     def update(self) -> None:
+        """Update."""
         keys_pressed = self.keyboard_handler.keys_pressed
         slash_pressed = "/" in keys_pressed
         escape_pressed = keyboard.Key.esc in keys_pressed
@@ -91,6 +94,7 @@ class ChatHandler:
     def _update_toggle_and_escape(
         self, slash_pressed: bool, escape_pressed: bool
     ) -> None:
+        """Update, toggle and escape."""
         if slash_pressed and not self._slash_was_pressed:
             self.is_open = not self.is_open
             self.keyboard_handler.keys_pressed = set()
@@ -106,6 +110,7 @@ class ChatHandler:
         self._escape_was_pressed = escape_pressed
 
     def _update_cursor_blink(self) -> None:
+        """Update cursor blink."""
         now_ns = time.perf_counter_ns()
         if now_ns - self._cursor_last_toggle_ns >= int(0.5 * 1e9):
             self._cursor_visible = not self._cursor_visible
@@ -114,11 +119,13 @@ class ChatHandler:
     def _process_new_keys(
         self, keys_pressed: set[str | keyboard.Key]
     ) -> None:
+        """Process new keys."""
         new_presses = keys_pressed - self._prev_keys_pressed
         for key in new_presses:
             self._handle_key(key)
 
     def _handle_key(self, key: str | keyboard.Key) -> None:
+        """Handle key."""
         if key == keyboard.Key.up:
             self._handle_history_up()
         elif key == keyboard.Key.down:
@@ -133,6 +140,7 @@ class ChatHandler:
             self.input_buffer += str(key)
 
     def _handle_history_up(self) -> None:
+        """Handle history up."""
         if not self._command_history:
             return
         if self._history_index == len(self._command_history):
@@ -141,6 +149,7 @@ class ChatHandler:
         self.input_buffer = self._command_history[self._history_index]
 
     def _handle_history_down(self) -> None:
+        """Handle history down."""
         if self._history_index >= len(self._command_history):
             return
         self._history_index += 1
@@ -150,10 +159,12 @@ class ChatHandler:
             self.input_buffer = self._command_history[self._history_index]
 
     def _handle_backspace(self) -> None:
+        """Handle backspace."""
         if len(self.input_buffer) > 1:
             self.input_buffer = self.input_buffer[:-1]
 
     def _handle_enter(self) -> None:
+        """Handle enter."""
         raw = self.input_buffer.strip()
         self.input_buffer = "/"
         self._history_index = len(self._command_history)
@@ -162,6 +173,7 @@ class ChatHandler:
         self._execute_command(raw)
 
     def _execute_command(self, raw: str) -> None:
+        """Execute command."""
         parts = raw[1:].strip().split()
         if not parts:
             return
