@@ -48,7 +48,19 @@ class Cell:
 
 
 class Maze:
-    """Maze grid."""
+    """Maze grid.
+
+    TODO:
+    You must provide a short documentation describing how to:
+    • Instantiate and use your generator, with at least a basic example.
+    • Pass custom parameters (e.g., size, seed).
+    • Access the generated structure, and access at least a solution.
+    • The main README.md file (not part of the reusable module)
+     must also contain this short documentation.
+
+    NOTE: check readme requierments
+
+    """
 
     def __init__(
         self,
