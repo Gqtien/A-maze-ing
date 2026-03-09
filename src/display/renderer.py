@@ -61,6 +61,15 @@ class Renderer:
         self.chat_handler.register_command("color", self._cmd_color)
         self.chat_handler.register_command("fps", self._cmd_toggle_fps)
 
+        # init chat with help command
+        result = self.chat_handler._commands["help"]([])
+        if result is not None:
+            msg, _ = result
+            if msg is not None:
+                self.chat_handler.messages.append(
+                    (msg, self.chat_handler.default_color)
+                )
+
         self.wall_palette: list[ColorPalette] = list(ColorPalette)
         self.wall_color_index: int = self.wall_palette.index(
             self.config.get("COLOR", ColorPalette.CYAN)
