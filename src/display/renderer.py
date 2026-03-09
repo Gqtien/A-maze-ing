@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Any
 import numpy
 import numpy.typing as npt
-from mlx import Mlx  # type: ignore
+from mlx import Mlx
 from pynput import keyboard
 from assets import CHAR_GLYPH_H, Color, ColorPalette
 from core import Algo, Maze
