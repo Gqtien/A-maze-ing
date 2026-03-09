@@ -136,14 +136,13 @@ class Extremum(Enum):
 
 def cast_value(value: str, target: type) -> Any:
     """Cast value to type."""
-
     if target in (int, float, str):
         return target(value)
     elif target is bool:
         if (v := value.lower()) not in ("true", "false"):
             raise ValueError(f"Invalid boolean: "
                              f"(expected 'true' or 'false', got {value!r})")
-            return v == "true"
+        return v == "true"
     elif target is tuple:
         parts = [p.strip() for p in value.strip("()").split(",")]
         if len(parts) != 2:
