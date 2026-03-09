@@ -507,11 +507,16 @@ class Renderer:
         return ("Toggled the mouse", True)
 
     def _cmd_toggle_path(self, args: list[str]) -> tuple[str, bool]:
-        """Toggle path display."""
+        """Toggle path display and recompute solution path."""
         self.show_solution = not self.show_solution
-        self._compute_minimap()
+
+        self.update_solution()
+
+        # recompute minimap
         self.mlx.mlx_destroy_image(self.mlx_ptr, self.minimap_image)
+        self._compute_minimap()
         self._init_minimap()
+
         return ("Toggled the solution display", True)
 
     def _cmd_play_solution(self, args: list[str]) -> tuple[str, bool]:
@@ -534,8 +539,22 @@ class Renderer:
             return ("Speed must be > 0. Usage: /play <speed>", False)
 
         self.playback.speed = speed
+
+        self.update_solution()
         self.playback.play_solution()
+
         return (f"Started playing the solution (speed={speed:g})", True)
+
+    def update_solution(self) -> None:
+        """Update solution from player pos to exit."""
+        player_pos = int(self.camera.pos.x / 2), int(self.camera.pos.y / 2)
+        self.maze.solution = self.maze.pathfind(
+            player_pos,
+            self.maze.exit_pos,
+        )
+
+        self.grid_solution_cells = self.maze.solution_to_grid()
+        self.playback.solution = self.grid_solution_cells
 
     def quit(self) -> None:
         """Properly exit mlx."""
