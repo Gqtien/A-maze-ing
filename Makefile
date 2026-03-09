@@ -5,7 +5,7 @@ PIP			:= $(BIN)/pip
 
 MAKEFLAGS	:= --no-print-directory
 
-CMDS		:= usage install run compile profile clean lint lint-strict
+CMDS		:= usage install run compile profile debug clean lint lint-strict
 ARGS		:= $(filter-out $(CMDS),$(MAKECMDGOALS))
 DEPS		:= numpy pynput types-pynput
 DEPSFLAG	:= $(VENV_DIR)/.installed
@@ -47,7 +47,7 @@ run:
 	        $(MAKE) install > /dev/null 2>&1; \
 	    fi; \
 	fi
-	@$(BIN)/$(PYTHON) src/a_maze_ing.py $(ARGS)
+	@$(BIN)/$(PYTHON) src/a_maze_ing.py $(ARGS) || true
 
 compile:
 	@$(PYTHON) -m venv $(VENV_DIR)
@@ -60,7 +60,11 @@ profile:
 	@$(PYTHON) -m venv $(VENV_DIR)
 	@$(PIP) install snakeviz --quiet
 	@$(BIN)/$(PYTHON) -m cProfile -o profile.prof src/a_maze_ing.py $(ARGS) || true
-	@$(BIN)/$(PYTHON) -m snakeviz profile.prof
+	@$(BIN)/$(PYTHON) -m snakeviz profile.prof || true
+
+debug:
+	@$(PYTHON) -m venv $(VENV_DIR)
+	@$(BIN)/$(PYTHON) -m pdb src/a_maze_ing.py $(ARGS) || true
 
 clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
@@ -71,7 +75,7 @@ clean:
 
 lint:
 	@$(BIN)/$(PYTHON) -m flake8 src || true
-	@$(BIN)/$(PYTHON) -m mypy src || true
+	@$(BIN)/$(PYTHON) -m mypy src --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs || true
 
 lint-strict:
 	@$(BIN)/$(PYTHON) -m flake8 src || true
