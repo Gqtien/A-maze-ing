@@ -1,4 +1,4 @@
-import random
+from random import randint, Random
 from enum import Enum
 from assets import DIGITS
 from core.config import Pattern, Algo
@@ -87,11 +87,11 @@ class Maze:
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
         self.algo: Algo = algo
-        self.seed: int = seed if seed is not None else random.randint(0, int(1e9))
+        self.seed: int = seed if seed is not None else randint(0, int(1e9))
 
         self.pattern_cells: set[Cell] = set()
         self._generate()
-        self.solution: list[Cell] = self.solve()
+        self.solution: list[Cell] = self.pathfind(entry_pos, exit_pos)
 
         if output_file_name is not None:
             self.save_to_file(output_file_name)
@@ -135,7 +135,7 @@ class Maze:
                 row.append(Cell(x, y, 0xF))
             self._maze.append(row)
 
-        rng = random.Random(self.seed)
+        rng = Random(self.seed)
 
         match self.algo:
             case Algo.PRIM:
@@ -184,7 +184,7 @@ class Maze:
 
         return cells
 
-    def _backtracking(self, rng: random.Random) -> None:
+    def _backtracking(self, rng: Random) -> None:
         """Perfect maze via iterative backtracking."""
         stack: list[Cell] = []
         self.pattern_cells = self.get_pattern_cells()
@@ -207,7 +207,7 @@ class Maze:
             else:
                 stack.pop()
 
-    def _prim(self, rng: random.Random) -> None:
+    def _prim(self, rng: Random) -> None:
         """Perfect maze via Prim's algorithm."""
         self.pattern_cells = self.get_pattern_cells()
         in_maze: set[Cell] = set(self.pattern_cells)
@@ -229,7 +229,7 @@ class Maze:
                 if neighbor not in in_maze:
                     frontier.append((cell_out, neighbor))
 
-    def solve(self) -> list[Cell]:
+    def pathfind(self, a: tuple[int, int], b: tuple[int, int]) -> list[Cell]:
         """Dijkstra's algo."""
         if not self._maze or not self._maze[0]:
             return []
@@ -241,8 +241,8 @@ class Maze:
         ]
         visited = [[False] * cols for _ in range(rows)]
 
-        start_x, start_y = self.entry_pos
-        exit_x, exit_y = self.exit_pos
+        start_x, start_y = a
+        exit_x, exit_y = b
         distances[start_y][start_x] = 0
 
         while True:
@@ -346,7 +346,7 @@ class Maze:
                 )
         return False
 
-    def _add_exit_loop(self, rng: random.Random) -> None:
+    def _add_exit_loop(self, rng: Random) -> None:
         """Add one shortcut from the exit."""
         exit_cell = self.get_cell(*self.exit_pos)
         blocked = self.pattern_cells
