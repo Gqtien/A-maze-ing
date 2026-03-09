@@ -87,7 +87,7 @@ class Maze:
         self._maze: list[list[Cell]] = []
         self.pattern: Pattern = pattern if pattern else Pattern("42")
         self.algo: Algo = algo
-        self.seed: int = seed if seed else random.randint(0, int(1e9))
+        self.seed: int = seed if seed is not None else random.randint(0, int(1e9))
 
         self.pattern_cells: set[Cell] = set()
         self._generate()
