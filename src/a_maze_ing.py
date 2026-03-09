@@ -5,6 +5,7 @@ from display import Renderer
 
 
 def main() -> None:
+    """Entry point."""
     try:
         if len(sys.argv) != 2:
             raise ValueError("Usage: make run <config_file>")

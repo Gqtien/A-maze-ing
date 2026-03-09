@@ -12,11 +12,13 @@ class Algo(Enum):
 
 
 class Mode:
-    """Key layout"""
+    """Key layout."""
+
     _member_names_: list[str] = ["4 chars"]
 
     class KeyBindings(NamedTuple):
         """Keys for forward, left, back, right."""
+
         forward: str
         left: str
         back: str
@@ -50,11 +52,13 @@ class Mode:
 
 
 class Pattern:
-    """Two-digit pattern"""
+    """Two-digit pattern."""
+
     _member_names_: list[str] = ["2 digits"]
 
     class PatternDigits(NamedTuple):
         """Names of the two Digits enum members for patterns."""
+
         first: str
         second: str
 
@@ -84,6 +88,8 @@ class Pattern:
 
 
 class MandatoryConfigKey(Enum):
+    """MandatoryConfigKey."""
+
     WIDTH = int
     HEIGHT = int
     ENTRY = tuple
@@ -93,6 +99,8 @@ class MandatoryConfigKey(Enum):
 
 
 class OptionalConfigKey(Enum):
+    """OptionalConfigKey."""
+
     SEED = int
     WIN_W = int
     WIN_H = int
@@ -109,6 +117,7 @@ class OptionalConfigKey(Enum):
 
 
 def env_int(name: str, default: str) -> int:
+    """Safely get int from env."""
     try:
         return int(os.environ.get(name, default))
     except ValueError:
@@ -116,6 +125,8 @@ def env_int(name: str, default: str) -> int:
 
 
 class Extremum(Enum):
+    """Config max value."""
+
     WIDTH = 1000
     HEIGHT = 1000
     WIN_W = env_int("SCREEN_WIDTH", "1920")
@@ -123,45 +134,34 @@ class Extremum(Enum):
     FOV = 120
 
 
-def cast_value(value: str, type: type) -> Any:
-    try:
-        if type is int:
-            return int(value)
-        elif type is float:
-            return float(value)
-        elif type is bool:
-            v = value.lower()
-            if v == "true":
-                return True
-            if v == "false":
-                return False
+def cast_value(value: str, target: type) -> Any:
+    """Cast value to type."""
+
+    if target in (int, float, str):
+        return target(value)
+    elif target is bool:
+        if (v := value.lower()) not in ("true", "false"):
             raise ValueError(f"Invalid boolean: "
                              f"(expected 'true' or 'false', got {value!r})")
-        elif type is str:
-            return value
-        elif type is tuple:
-            parts = [p.strip() for p in value.strip("()").split(",")]
-            if len(parts) != 2:
-                raise ValueError(
-                    f"Expected exactly 2 comma-separated integers, "
-                    f"got {len(parts)}"
-                )
-            return tuple(map(int, parts))
-        elif type is Algo:
-            return Algo[value.strip().upper()]
-        elif type is ColorPalette:
-            return ColorPalette[value.strip().upper()]
-        elif type is Pattern:
-            return Pattern(value.strip())
-        elif type is Mode:
-            return Mode(value.strip())
-        else:
-            raise TypeError(f"Unsupported type: {type}")
-    except (ValueError, KeyError):
-        raise ValueError(f"Invalid value for type {type}: {value!r}")
+            return v == "true"
+    elif target is tuple:
+        parts = [p.strip() for p in value.strip("()").split(",")]
+        if len(parts) != 2:
+            raise ValueError(
+                f"Expected exactly 2 comma-separated integers, "
+                f"got {len(parts)}"
+            )
+        return tuple(map(int, parts))
+    elif target in (Algo, ColorPalette):
+        return target[value.strip().upper()]
+    elif target in (Pattern, Mode):
+        return target(value.strip())
+    else:
+        raise TypeError(f"Unsupported type: {target}")
 
 
 def validate_bounds(config: dict[str, Any]) -> None:
+    """Validate that entry and exit pos are in maze."""
     if not all(key in config for key in ("WIDTH", "HEIGHT", "ENTRY", "EXIT")):
         return
 
@@ -192,6 +192,7 @@ def validate_bounds(config: dict[str, Any]) -> None:
 
 
 def parse_config(path: str) -> dict[str, Any]:
+    """Parse the config file."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"Config file not found: {path}")
     if os.path.isdir(path):
