@@ -42,22 +42,6 @@ class Cell:
         """Get west wall."""
         return self.wall & Wall.WEST.value == Wall.WEST.value
 
-    def nw(self) -> bool:
-        """North or West."""
-        return self.north() or self.west()
-
-    def ne(self) -> bool:
-        """North or east."""
-        return self.north() or self.east()
-
-    def sw(self) -> bool:
-        """South or west."""
-        return self.south() or self.west()
-
-    def se(self) -> bool:
-        """South or east."""
-        return self.south() or self.east()
-
     def is_full(self) -> bool:
         """Check if every wall is there."""
         return self.east() and self.west() and self.north() and self.south()
