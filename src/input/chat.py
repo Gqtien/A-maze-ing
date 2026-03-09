@@ -42,11 +42,13 @@ class ChatHandler:
     def _register_builtins(self) -> None:
         """Register builtins."""
         def help_cmd(_args: list[str]) -> CommandResult:
-            names = ", ".join(
+            self.messages.append(("Commands:", self.default_color))
+            for name in (
                 f"/{self._command_displays.get(n, n)}"
                 for n in list(self._commands.keys())[1:]
-            )
-            self.messages.append((f"Commands: {names}", self.default_color))
+            ):
+                self.messages.append((name, self.default_color))
+            self.messages.append(("", self.default_color))
             return (None, False)  # no extra message, keep chat open
 
         self._commands["help"] = help_cmd
