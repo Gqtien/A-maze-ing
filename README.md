@@ -55,6 +55,9 @@ make run default_config.txt
 
 <a name=config></a>
 ## `⚙️` | Configuration
+
+A complete configuration template is available at the root of the project in `default_config.txt`.
+
 ### Maze Settings
 
 | Key       | Description                         | Valid Values / Notes                  | Mandatory |
@@ -108,10 +111,6 @@ make run default_config.txt
 
 ---
 
-Voici une version **améliorée pour README**, qui garde ton contenu mais rend le tout plus lisible et “GitHub-friendly” :
-
----
-
 <a name="reusability"></a>
 ## `🔄` | Reusability
 
@@ -151,21 +150,77 @@ $ python3
 >>> print(maze.solution)
 ```
 
+## Maze parameters
+
+| Key              | Type                       | Mandatory |
+| ---------------- | -------------------------- | --------- |
+| width            | int                        | True      |
+| height           | int                        | True      |
+| entry_pos        | tuple[int, int]            | True      |
+| exit_pos         | tuple[int, int]            | True      |
+| output_file_name | str \| None = None         | False     |
+| perfect          | bool = True                | False     |
+| seed             | int \| None = None         | False     |
+| pattern          | Pattern \| None = None     | False     |
+| algo             | Algo = Algo.BACKTRACKING   | False     |
+
+## Exposed methods
+
+| Method                           | Output                     | Description                                |
+| -------------------------------- | -------------------------- | ------------------------------------------ |
+| `_generate()`                    | `None`                     | Generate the maze                          |
+| `_backtracking(rng)`             | `None`                     | Generate maze using backtracking algorithm |
+| `_prim(rng)`                     | `None`                     | Generate maze using Prim's algorithm       |
+| `pathfind(a, b)`                 | `list[Cell]`               | Compute path between two coordinates       |
+| `cardinal_path(path)`            | `str`                      | Convert a path to cardinal directions      |
+| `get_neighbors(cell)`            | `list[Cell]`               | Return all neighboring cells               |
+| `get_accessible_neighbors(cell)` | `list[Cell]`               | Return accessible neighbors                |
+| `get_cell(x, y)`                 | `Cell`                     | Retrieve a specific cell                   |
+| `get_maze()`                     | `list[list[Cell]]`         | Return full maze structure                 |
+| `to_grid()`                      | `list[list[bool]]`         | Convert maze to boolean grid               |
+| `solution_to_grid()`             | `list[tuple[int, int]]`    | Return solution path coordinates           |
+| `save_to_file(filename)`         | `None`                     | Save maze to file                          |
+
 ---
 
 <a name="resources"></a>
 ## `📚` | Resources
+
 ### Documentation
+* [Maze generation algorithms on Wikipedia](https://en.wikipedia.org/wiki/Maze_generation_algorithm)
+* [Raycasting guide](https://lodev.org/cgtutor/raycasting.html)
+
 ### AI Usage
+AI was used during the development of this project for code reviews, identifying potential edge-case failures, creating proofs of concept prior to implementing complex features, and debugging.
 
 ---
 
 <a name="contributions"></a>
+
 ## `👥` | Contributions
 
+### Contributors
+
+* [Gatien](https://github.com/Gqtien/) `(gviola-l)`
+* [Marcel](https://github.com/PurpleProg/) `(mphippen)`
+
 ### Team Roles
+
+* Both team members contributed **equally** to all aspects of the project. There were no fixed roles : coding, testing, planning, and debugging were done **collaboratively**.
+
 ### Project Planning & Evolution
-• The maze generation algorithm you chose.
-• Why you chose this algorithm. 
+
+* **Maze generation algorithm used:** Iterative Backtracking & Prim
+* **Reason for choice:** Iterative Backtracking was implemented first as a base because it is one of the **simplest** algorithms to code. Prim’s algorithm was then added to introduce **variation**: while Iterative Backtracking produces a **smooth, straightforward** maze, Prim generates more **branches and random pathways**, creating a more complex and varied layout.
+
 ### Successes & Improvements
-### Used tools
+
+* Successfully implemented a fully functional maze generator and solver with integrated 3D visualization.
+* Optimized performance for smoother rendering.
+* Planned improvements: display the solution path directly on the 3D viewer floor.
+
+### Used Tools
+
+* **Programming languages:** Python
+* **Libraries:** MLX, NumPy, Pynput 
+* **AI assistance:** [See abobe](#resources)
