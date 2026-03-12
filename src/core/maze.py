@@ -48,18 +48,48 @@ class Cell:
 
 
 class Maze:
-    """Maze grid.
+    """Maze generator and solver.
 
-    TODO:
-    You must provide a short documentation describing how to:
-    • Instantiate and use your generator, with at least a basic example.
-    • Pass custom parameters (e.g., size, seed).
-    • Access the generated structure, and access at least a solution.
-    • The main README.md file (not part of the reusable module)
-     must also contain this short documentation.
+    This class generates a maze using a chosen algorithm and provides
+    utilities to access its structure and compute a solution path.
 
-    NOTE: check readme requierments
+    Parameters
+    ----------
+    width : int -> Maze width in cells.
+    height : int -> Maze height in cells.
+    entry_pos : tuple[int, int] -> Entry coordinate (x, y).
+    exit_pos : tuple[int, int] -> Exit coordinate (x, y).
+    output_file_name : str | None ->
+        Optional file to save the maze representation.
+    perfect : bool ->
+        If True, generates a perfect maze (single path between cells).
+    seed : int | None -> Random seed for reproducible generation.
+    pattern : Pattern | None -> Optional pattern carved in the maze.
+    algo : Algo -> Generation algorithm (BACKTRACKING or PRIM).
 
+    Example
+    -------
+    Basic usage:
+
+    >>> from mazegen import Maze, Algo
+
+    >>> maze = Maze(20, 20, (0, 0), (19, 19))
+    >>> print(maze)
+
+    Using a custom seed and algorithm:
+
+    >>> maze = Maze(
+    ...     width=30,
+    ...     height=30,
+    ...     entry_pos=(0, 0),
+    ...     exit_pos=(29, 29),
+    ...     seed=42,
+    ...     algo=Algo.PRIM
+    ... )
+
+    Accessing the solution path:
+
+    >>> print(maze.cardinal_path(maze.solution))
     """
 
     def __init__(

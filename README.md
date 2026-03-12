@@ -148,8 +148,8 @@ $ python3
 # Print the ASCII representation of the maze
 >>> print(maze)
 
-# Print the solution as a list of cell coordinates
->>> print(maze.solution)
+# Print the solution as cardinal directions
+>>> print(maze.cardinal_path(maze.solution))
 ```
 
 ## Maze parameters
