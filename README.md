@@ -1,6 +1,6 @@
 *This project has been created as part of the 42 curriculum by gviola-l, mphippen.*
 
-# A-Maze-Ing x MiniCub3D
+![A-maze-ing x MiniCub3D](src/assets/banner.png)
 
 <a name="header"></a>
 [![language](https://img.shields.io/badge/language-Python-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -32,6 +32,8 @@ This version of the project integrates a simplified version of another 42 projec
 
 * Navigate the maze from a **first-person perspective**
 * Interact with maze features using **chat commands**
+
+![Gameplay](src/assets/gameplay.gif)
 
 ---
 
