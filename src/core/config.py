@@ -152,9 +152,23 @@ def cast_value(value: str, target: type) -> Any:
             )
         return tuple(map(int, parts))
     elif target is ColorPalette:
-        return ColorPalette[value.strip().upper()]
+        try:
+            return ColorPalette[value.strip().upper()]
+        except KeyError:
+            valid = ", ".join(ColorPalette.__members__.keys())
+            raise ValueError(
+                f"Invalid value for COLOR: expected one of {{{valid}}}, "
+                f"got {value!r}"
+            )
     elif target is Algo:
-        return Algo[value.strip().upper()]
+        try:
+            return Algo[value.strip().upper()]
+        except KeyError:
+            valid = ", ".join(Algo.__members__.keys())
+            raise ValueError(
+                f"Invalid value for ALGO: expected one of {{{valid}}}, "
+                f"got {value!r}"
+            )
     elif target in (Pattern, Mode):
         return target(value.strip())
     else:
