@@ -182,7 +182,7 @@ class Maze:
         digit_width: int = len(pattern_first[0]) if pattern_first else 0
         total_width: int = digit_width * 2 + 1
 
-        if self.width < total_width or self.height < digit_height:
+        if self.width <= total_width or self.height <= digit_height:
             print(
                 f"Maze too small for pattern: got {self.width}x{self.height}, "
                 f"needs at least {total_width}x{digit_height}"
