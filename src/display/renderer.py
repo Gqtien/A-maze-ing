@@ -283,7 +283,7 @@ class Renderer:
             return Color.RED.value
         if self.show_solution and (x, y) in self.grid_solution_cells:
             return self.solution_color
-        return Color.WHITE.value
+        return Color.BLACK.value
 
     def _spawn_camera(self) -> None:
         """Place camera at maze entry facing an open corridor."""
@@ -333,9 +333,9 @@ class Renderer:
     def _render_player(self) -> None:
         """Draw the player sprite on the minimap."""
         player_color = (
-            self.pattern_color
+            self._darken_color(Color.CYAN.value, 20)
             if self.wall_color_index == 1
-            else self._darken_color(ColorPalette.WHITE.value)
+            else ColorPalette.WHITE.value
         )
         draw_player_sprite(
             camera_pos=(self.camera.pos.x, self.camera.pos.y),
@@ -355,7 +355,6 @@ class Renderer:
         cast one ray per column,
         put raycasting and minimap images to window.
         """
-
         self.numpy_raycasting_buffer[:] = self.bg_buffer
         self.minimap_buffer[:] = self.minimap_clear_buffer
 

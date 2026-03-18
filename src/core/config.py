@@ -127,8 +127,8 @@ def env_int(name: str, default: str) -> int:
 class Extremum(Enum):
     """Config max value."""
 
-    WIDTH = 1000
-    HEIGHT = 1000
+    WIDTH = 100
+    HEIGHT = 100
     WIN_W = env_int("SCREEN_WIDTH", "1920")
     WIN_H = env_int("SCREEN_HEIGHT", "1080")
     FOV = 120
