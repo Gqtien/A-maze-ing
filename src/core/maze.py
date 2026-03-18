@@ -472,17 +472,15 @@ class Maze:
                 cy = 2 * y + 1
 
                 # cell center is always a path
-                grid[cy][cx] = False
+                grid[cy][cx] = all(
+                    (cell.north(), cell.south(), cell.west(), cell.east())
+                )
 
                 # open passages according to missing walls
-                if not cell.north():
-                    grid[cy - 1][cx] = False
-                if not cell.south():
-                    grid[cy + 1][cx] = False
-                if not cell.west():
-                    grid[cy][cx - 1] = False
-                if not cell.east():
-                    grid[cy][cx + 1] = False
+                grid[cy - 1][cx] = cell.north()
+                grid[cy + 1][cx] = cell.south()
+                grid[cy][cx - 1] = cell.west()
+                grid[cy][cx + 1] = cell.east()
 
         return grid
 
